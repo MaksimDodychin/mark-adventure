@@ -1,7 +1,7 @@
-// service worker «Большое приключение» — версия по содержимому: 19a10598d5
+// service worker «Большое приключение» — версия по содержимому: d2ced7529e
 // Игра всегда отдаётся МГНОВЕННО из памяти телефона (и работает без интернета).
 // Новая версия скачивается фоном при следующем заходе и применяется сама.
-const CACHE = 'adventure-19a10598d5';
+const CACHE = 'adventure-d2ced7529e';
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-512-maskable.png','./apple-touch-icon.png','./favicon-64.png'];
 
 self.addEventListener('install', e => {
