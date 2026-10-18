@@ -285,7 +285,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "223edec893";</script>
+  <script>window.__APP_VER = "f50900554f";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -303,6 +303,7 @@
         <button class="btn alt small" id="wardrobeBtn">👕 ГАРДЕРОБ</button>
         <button class="btn small" id="setBtnMenu">⚙️ НАСТРОЙКИ</button>
         <button class="btn small" id="learnMenuBtn">🎓 ОБУЧЕНИЕ</button>
+        <button class="btn small" id="киноМенюКн">🎬 МУЛЬТИКИ</button>
         <button class="btn small" id="slotBtn">💾 ФАЙЛ <span id="slotNum">1</span></button>
         <button class="btn small" id="diffBtn">🎚 <span id="diffName">Средне</span></button>
       </div>
@@ -432,6 +433,16 @@
     <div id="bookText"></div>
     <div id="bookHint">нажми, чтобы читать дальше</div>
   </div>
+</div>
+
+<!-- ======= 🎬 ПЕРЕСМОТРЕТЬ МУЛЬТИКИ ======= -->
+<div id="киноВыбор" class="screen hidden">
+  <h1 style="font-size:clamp(22px,5vw,40px)">🎬 МУЛЬТИКИ</h1>
+  <div class="sub">В игре они идут сами — тут можно пересмотреть</div>
+  <button class="btn" data-kino="пролог">🏡 Морок врывается</button>
+  <button class="btn" data-kino="джунгли">🌴 Полёт в джунгли</button>
+  <button class="btn" data-kino="символы">🌌 Морок забирает символы</button>
+  <button class="btn small" id="киноНазад">← НАЗАД</button>
 </div>
 
 <!-- ======= 🎬 МУЛЬТИК ======= -->
@@ -8778,6 +8789,13 @@ function кончитьМультик() {
   setTimeout(() => { if (кино) return; тм.style.transition = 'opacity .8s'; тм.style.opacity = 0; setTimeout(() => { if (!кино) $('кино').classList.add('hidden'); }, 850); }, 150);
 }
 $('киноПропуск').addEventListener('click', e => { e.stopPropagation(); кончитьМультик(); });
+/* 🎬 пересмотр из меню: после мультика — снова меню */
+$('киноМенюКн').addEventListener('click', () => { $('menu').classList.add('hidden'); $('киноВыбор').classList.remove('hidden'); sfx('click'); });
+$('киноНазад').addEventListener('click', () => { $('киноВыбор').classList.add('hidden'); $('menu').classList.remove('hidden'); });
+for (const кн of document.querySelectorAll('#киноВыбор [data-kino]')) кн.addEventListener('click', () => {
+  $('киноВыбор').classList.add('hidden');
+  запуститьМультик(кн.dataset.kino, () => { clearWorld(); scene.background = new THREE.Color(0x091e2c); state = 'menu'; $('menu').classList.remove('hidden'); refreshMenu(); });
+});
 function киноПрыг(i) {                               // 🧪 для проверки: перескочить к кадру, доделав предыдущие
   const к = кино; if (!к) return null;
   for (let j = к.i; j < i; j++) { const кд = к.Ф.кадры[j]; if (j > к.i && кд.нач) кд.нач(к.ск, к); if (кд.итог) кд.итог(к.ск, к); }
