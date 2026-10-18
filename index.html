@@ -209,6 +209,22 @@
 
   /* 📖 книжная заставка между главами */
   #chapter { background:#0b1220ee; }
+  /* 🎬 мультик: чёрные полосы, кто говорит и субтитры, «пропустить», затемнение */
+  #кино { position:fixed; inset:0; z-index:30; pointer-events:none; }
+  #кино .полоса { position:absolute; left:0; right:0; height:9vh; background:#000; }
+  #кино .полоса.в { top:0; } #кино .полоса.н { bottom:0; }
+  #киноНиз { position:absolute; left:50%; bottom:1.6vh; transform:translateX(-50%); width:min(94vw, 880px); text-align:center; opacity:0; transition:opacity .3s; }
+  #киноНиз.есть { opacity:1; }
+  #киноКто { font:800 clamp(11px,1.8vw,14px) system-ui, sans-serif; color:#c4b5fd; letter-spacing:.04em; text-shadow:0 1px 3px #000; }
+  #киноТекст { font:700 clamp(14px,2.5vw,20px) system-ui, sans-serif; color:#fff; text-shadow:0 2px 6px #000; background:#000b; border-radius:10px; padding:4px 12px; display:inline-block; margin-top:2px; }
+  #киноТекст:empty { display:none; }
+  #киноПропуск { position:absolute; top:calc(9vh + 10px); right:14px; pointer-events:auto; border:0; border-radius:12px; padding:8px 14px; font:800 13px system-ui, sans-serif;
+    background:#0b1220cc; color:#e2e8f0; box-shadow:0 0 0 1px #ffffff33; cursor:pointer; }
+  #киноЗатемн { position:absolute; inset:0; opacity:0; background:#000; pointer-events:none; }
+  body:not(.кино) #кино .полоса, body:not(.кино) #киноПропуск, body:not(.кино) #киноНиз { display:none; }
+  body.кино #hud, body.кино #compass, body.кино #subs, body.кино #chargeName, body.кино #chargeWrap, body.кино #airWrap, body.кино #coldWrap,
+  body.кино #dpad, body.кино #dpad2, body.кино #stick, body.кино #stick2, body.кино #actions, body.кино #actions2, body.кино #splitLine,
+  body.кино #tag1, body.кино #tag2, body.кино #hint, body.кино #bigMsg, body.кино #titleCard { display:none !important; }
   #bookPage { width:min(720px,94vw); background:linear-gradient(180deg,#f6ecd4,#e8d9b5);
     color:#3a2a12; border-radius:14px; padding:26px 30px; box-shadow:0 20px 60px #000a, inset 0 0 40px #c9b58a55;
     border:2px solid #cbb08a; }
@@ -269,7 +285,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "d56acbaa9d";</script>
+  <script>window.__APP_VER = "223edec893";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -416,6 +432,14 @@
     <div id="bookText"></div>
     <div id="bookHint">нажми, чтобы читать дальше</div>
   </div>
+</div>
+
+<!-- ======= 🎬 МУЛЬТИК ======= -->
+<div id="кино" class="hidden">
+  <div class="полоса в"></div><div class="полоса н"></div>
+  <div id="киноНиз"><div id="киноКто"></div><div id="киноТекст"></div></div>
+  <button id="киноПропуск">⏭ ПРОПУСТИТЬ</button>
+  <div id="киноЗатемн"></div>
 </div>
 
 <!-- ======= ПРОЛОГ ======= -->
@@ -1030,7 +1054,7 @@ function applyViewSizes() {
 }
 function renderFrame() {
   if (renderWardrobePreview()) return;
-  if (coop && hero2 && composer2) {
+  if (coop && hero2 && composer2 && state !== 'кино') {
     const L = splitLayout(), px = renderer.getPixelRatio();
     renderer.setScissorTest(true);
     renderer.setViewport(L.первый.x, L.первый.y, L.w, L.h);
@@ -1775,6 +1799,7 @@ let waterLevel = -99;                               // ниже этой выс�
 function heightAt(x, z) {
   const K = terrainKind;
   if (K === 'cellar' || K === 'igloo' || K === 'cauldron') return 0;   // подземелья и котёл — ровный пол
+  if (K === 'кино') return кино && кино.высота ? кино.высота(x, z) : 0;   // 🎬 декорации мультика
   if (K === 'ruins') {
     const base = fbm(x*0.012+11, z*0.012+7, 4) * 7.5 - 2.2;
     const plateau = Math.max(0, 4.5 - Math.hypot(x, z)*0.055);      // площадка в центре, где стоит замок
@@ -1856,6 +1881,8 @@ function groundColor(x, z, h, out) {
     c = [0.86,0.93,1.0];
   } else if (terrainKind === 'space') {
     c = s > 0.5 ? [0.16,0.14,0.24] : [0.22,0.20,0.32];
+  } else if (terrainKind === 'кино') {
+    c = [0.21 + n*0.05, 0.45 + n*0.06, 0.19];                      // 🎬 двор с газоном
   } else {
     c = h < -8 ? [0.30,0.36,0.40] : [0.62,0.58,0.44];
   }
@@ -5448,6 +5475,50 @@ function addSaucerGens(arr, bx, bz, hp) {
   }
 }
 
+/* 👑 тело Морока: плащ из тьмы, зеркальная маска, корона из часов, руки-провода, три ядра */
+function makeMorokBody(g) {
+  const cores = [];
+    // дымный силуэт без ног: плащ из тьмы, зеркальная маска, корона из сломанных часов
+    const cloak = new THREE.Mesh(new THREE.ConeGeometry(2.6, 6.4, 14, 1, true),
+      new THREE.MeshStandardMaterial({ color:0x140b22, roughness:1, side:THREE.DoubleSide,
+                                       transparent:true, opacity:0.92 }));
+    cloak.position.y = 3.4; g.add(cloak);
+    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(1.5, 14, 10), plastic(0x1c1030, 1));
+    shoulders.position.y = 5.6; shoulders.scale.set(1.3, 0.7, 1.1); g.add(shoulders);
+    const mask = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 0), metalM(0xe7e9f2, 0.06));
+    mask.position.set(0, 6.6, 0.25); g.add(mask);            // маска из зеркальных осколков
+    for (let i=0;i<7;i++) {                                   // корона из сломанных часов
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5 + Math.random()*0.4, 5), metalM(0xb0a06a, 0.25));
+      sp.position.set(Math.cos(i/7*6.28)*0.85, 7.5, Math.sin(i/7*6.28)*0.85);
+      sp.rotation.z = (Math.random()-0.5)*0.5; g.add(sp);
+    }
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.13,8,8), emisM(0xff2b2b, 2.4));
+    const eyeR = eyeL.clone();
+    eyeL.position.set(-0.3, 6.7, 1.0); eyeR.position.set(0.3, 6.7, 1.0); g.add(eyeL); g.add(eyeR);
+    // руки-провода: щупальца из кабелей и корней
+    const tent = [];
+    for (let i=0;i<6;i++) {
+      const t = new THREE.Group();
+      let prev = null;
+      for (let j=0;j<7;j++) {
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.16-j*0.017, 0.14-j*0.015, 0.75, 6),
+          j % 2 ? emisM(0x3b1d5e, 0.35) : plastic(0x120a20, 1));
+        seg.position.y = -0.38 - j*0.72; t.add(seg);
+        prev = seg;
+      }
+      t.position.set(Math.cos(i/6*6.28)*1.4, 5.2, Math.sin(i/6*6.28)*1.4);
+      g.add(t); tent.push({ group:t, phase:i*1.05 });
+    }
+    // три ядра кошмаров в груди — слабые места
+    for (let i=0;i<3;i++) {
+      const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), emisM(0xff4d6d, 0.3));
+      core.position.set((i-1)*0.85, 4.6, 0.9); g.add(core);
+      cores.push(core);
+    }
+    g.userData.tent = tent; g.userData.mask = mask; g.userData.cloak = cloak;
+  return { cores };
+}
+
 function spawnBoss(kind, x, z) {
   const info = BOSSES[kind];
   const g = new THREE.Group();
@@ -5522,44 +5593,8 @@ function spawnBoss(kind, x, z) {
     flask.position.set(0, 5.6, 0.9); g.add(flask);          // колба с рецептом — слабое место
     spots.push({ mesh:flask, hits:0, need:info.hits, alive:true, open:false });
   } else if (kind === 'morok') {
-    // дымный силуэт без ног: плащ из тьмы, зеркальная маска, корона из сломанных часов
-    const cloak = new THREE.Mesh(new THREE.ConeGeometry(2.6, 6.4, 14, 1, true),
-      new THREE.MeshStandardMaterial({ color:0x140b22, roughness:1, side:THREE.DoubleSide,
-                                       transparent:true, opacity:0.92 }));
-    cloak.position.y = 3.4; g.add(cloak);
-    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(1.5, 14, 10), plastic(0x1c1030, 1));
-    shoulders.position.y = 5.6; shoulders.scale.set(1.3, 0.7, 1.1); g.add(shoulders);
-    const mask = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 0), metalM(0xe7e9f2, 0.06));
-    mask.position.set(0, 6.6, 0.25); g.add(mask);            // маска из зеркальных осколков
-    for (let i=0;i<7;i++) {                                   // корона из сломанных часов
-      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5 + Math.random()*0.4, 5), metalM(0xb0a06a, 0.25));
-      sp.position.set(Math.cos(i/7*6.28)*0.85, 7.5, Math.sin(i/7*6.28)*0.85);
-      sp.rotation.z = (Math.random()-0.5)*0.5; g.add(sp);
-    }
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.13,8,8), emisM(0xff2b2b, 2.4));
-    const eyeR = eyeL.clone();
-    eyeL.position.set(-0.3, 6.7, 1.0); eyeR.position.set(0.3, 6.7, 1.0); g.add(eyeL); g.add(eyeR);
-    // руки-провода: щупальца из кабелей и корней
-    const tent = [];
-    for (let i=0;i<6;i++) {
-      const t = new THREE.Group();
-      let prev = null;
-      for (let j=0;j<7;j++) {
-        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.16-j*0.017, 0.14-j*0.015, 0.75, 6),
-          j % 2 ? emisM(0x3b1d5e, 0.35) : plastic(0x120a20, 1));
-        seg.position.y = -0.38 - j*0.72; t.add(seg);
-        prev = seg;
-      }
-      t.position.set(Math.cos(i/6*6.28)*1.4, 5.2, Math.sin(i/6*6.28)*1.4);
-      g.add(t); tent.push({ group:t, phase:i*1.05 });
-    }
-    // три ядра кошмаров в груди — слабые места
-    for (let i=0;i<3;i++) {
-      const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), emisM(0xff4d6d, 0.3));
-      core.position.set((i-1)*0.85, 4.6, 0.9); g.add(core);
-      spots.push({ mesh:core, hits:0, need:info.hits, alive:true, open:false });
-    }
-    g.userData.tent = tent; g.userData.mask = mask; g.userData.cloak = cloak;
+    // 👑 тело Морока — общее с мультиками (makeMorokBody)
+    for (const core of makeMorokBody(g).cores) spots.push({ mesh:core, hits:0, need:info.hits, alive:true, open:false });
     legs = []; saws = [];
   } else {
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 3.2, 1.1, 20), metalM(0x94a3b8, 0.3));
@@ -5896,6 +5931,10 @@ const VOICES = {
   'охладитель': { pitch: 0.6, rate: 0.95, robot: true },
   'тарелка':  { pitch: 0.7,  rate: 0.95, robot: true },
   'кошмаратор': { pitch: 0.4, rate: 0.9, robot: true },
+  '_друг':     { pitch: 1.35, rate: 1.15, male: true },   // 🎬 голоса мультиков: друзья, ты, хохот Морока
+  '_подружка': { pitch: 1.75, rate: 1.1 },
+  '_герой':    { pitch: 1.15, rate: 1.1, male: true },
+  '_хохот':    { pitch: 0.5,  rate: 1.0 },
 };
 /* ✍️ УДАРЕНИЯ: движок часто читает «при́зрак этого зам́ка» — подсказываем ему знаком ударения.
    Знак U+0301 ставится ПОСЛЕ ударной гласной. */
@@ -5925,12 +5964,12 @@ function accentize(text) {
   });
 }
 
-function speak(who, text) {
+function speak(who, text, vkey) {
   if (speechMode !== 'voice' || !text) return;
   try {
     const u = new SpeechSynthesisUtterance(accentize(text));   // ✍️ с правильными ударениями
     u.lang = 'ru-RU';
-    const key = Object.keys(VOICES).find(k => who.toLowerCase().includes(k));
+    const key = vkey && VOICES[vkey] ? vkey : Object.keys(VOICES).find(k => who.toLowerCase().includes(k));
     const v = VOICES[key] || { pitch: 1.0, rate: 1.0 };
     u.voice = (v.male && ruVoiceMale) ? ruVoiceMale : (ruVoice || null);
     u.pitch = v.pitch; u.rate = v.rate; u.volume = 0.95;
@@ -5938,6 +5977,7 @@ function speak(who, text) {
     if (v.robot) u.text = accentize(text).replace(/([аеёиоуыэюя])/gi, '$1 ').replace(/\s+/g, ' ');
     speechSynthesis.cancel();                              // новая реплика перебивает старую
     speechSynthesis.speak(u);
+    return u;                                              // 🎬 мультик ждёт конца реплики
   } catch (_) {}
 }
 
@@ -7702,7 +7742,7 @@ function startTheme(id) {
   const th = THEMES[id]; if (!th) return;
   musId = id; musStep = 0;
   musTimer = setInterval(() => {
-    if (!soundOn || state !== 'play') return;
+    if (!soundOn || (state !== 'play' && state !== 'кино')) return;
     const n = th.notes[musStep % th.notes.length];
     tone(n, th.type, th.beat*1.5, th.vol);
     if (musStep % 4 === 0) tone(n/2, 'sine', th.beat*2, th.vol*0.7);   // бас
@@ -8078,38 +8118,40 @@ function enterPortal() {
     cauldronBack = null;                                    // вынырнули из котла в новый мир
     const next = worldIdx + 1;
     if (next >= WORLDS.length) { startFinal(); return; }
-    if (!save.done.includes(WORLDS[worldIdx].id)) save.done.push(WORLDS[worldIdx].id);
-    save.worlds = Math.max(save.worlds, next + 1); saveNow();
-    worldIdx = next;
-    save.point = WORLDS[next].id; saveNow();               // 🚩 точка сохранения
-    buildWorld(worldIdx);
-    hearts = diff().hearts || 3; air = CFG.airMax; updateHud();
-    $('flash').style.opacity = '0';
-    state = 'play'; travelling = false;
-    if (WORLDS[worldIdx].id === 'lair' && !save.chapterSpace) {      // 📖 глава: Морок забрал символы
-      save.chapterSpace = true; saveNow();
-      state = 'pause';
-      showChapter('space', () => { state = 'play'; });
+    // 🎬 мультики вместо книжек (Марк 17.10): полёт в джунгли и речь Морока после космоса
+    const мульт = WORLDS[next].id === 'jungle' && !save.chapterJungle ? 'джунгли'
+                : WORLDS[next].id === 'lair' && !save.chapterSpace ? 'символы' : null;
+    if (мульт) {
+      if (мульт === 'джунгли') save.chapterJungle = true; else save.chapterSpace = true;
+      saveNow(); $('flash').style.opacity = '0';
+      запуститьМультик(мульт, () => прибытьВМир(next));
+      return;
     }
-    if (WORLDS[worldIdx].id === 'jungle' && !save.chapterJungle) {   // 📖 книжная вставка
-      save.chapterJungle = true; saveNow();
-      state = 'pause';
-      showChapter('jungle', () => { state = 'play'; });
-    }
-    if (worldIdx === 1 && !save.titleShown) {              // 🎬 вот теперь — название игры
-      save.titleShown = true; saveNow();
-      const tc = $('titleCard');
-      tc.classList.remove('hidden');
-      sfx('chime'); setTimeout(() => sfx('chime'), 400);
-      setTimeout(() => tc.classList.add('hidden'), 3600);
-    }
-    bigMsg(WORLDS[worldIdx].em + ' ' + WORLDS[worldIdx].name.toUpperCase(), 2.4, '#86efac');
-    const prev = WORLDS[worldIdx-1];
-    if (prev && prev.component)
-      setTimeout(() => bigMsg('👑 Морок забрал отсюда ' + prev.component.em + ' ' + prev.component.name +
-                              '\n(' + prev.component.why + ')', 3.2, '#c4b5fd'), 2600);
-    hint(WORLDS[worldIdx].desc);
+    прибытьВМир(next);
   }, 1100);
+}
+function прибытьВМир(next) {
+    if (!save.done.includes(WORLDS[worldIdx].id)) save.done.push(WORLDS[worldIdx].id);
+  save.worlds = Math.max(save.worlds, next + 1); saveNow();
+  worldIdx = next;
+  save.point = WORLDS[next].id; saveNow();               // 🚩 точка сохранения
+  buildWorld(worldIdx);
+  hearts = diff().hearts || 3; air = CFG.airMax; updateHud();
+  $('flash').style.opacity = '0';
+  state = 'play'; travelling = false;
+  if (worldIdx === 1 && !save.titleShown) {              // 🎬 вот теперь — название игры
+    save.titleShown = true; saveNow();
+    const tc = $('titleCard');
+    tc.classList.remove('hidden');
+    sfx('chime'); setTimeout(() => sfx('chime'), 400);
+    setTimeout(() => tc.classList.add('hidden'), 3600);
+  }
+  bigMsg(WORLDS[worldIdx].em + ' ' + WORLDS[worldIdx].name.toUpperCase(), 2.4, '#86efac');
+  const prev = WORLDS[worldIdx-1];
+  if (prev && prev.component)
+    setTimeout(() => bigMsg('👑 Морок забрал отсюда ' + prev.component.em + ' ' + prev.component.name +
+                            '\n(' + prev.component.why + ')', 3.2, '#c4b5fd'), 2600);
+  hint(WORLDS[worldIdx].desc);
 }
 
 /* 👑 ФИНАЛ: бой с Мороком на обломках всех четырёх миров */
@@ -8455,6 +8497,7 @@ function buildLearn() {
   });
 }
 function setPause(on) {
+  if (state === 'кино') return;                            // 🎬 в мультике паузы нет — есть «пропустить»
   const корабльЕсть = save.worlds > 1;                     // корабль получаешь в лесу
   $('flyBtn').classList.toggle('hidden', !корабльЕсть);
   paused = on;
@@ -8621,11 +8664,9 @@ const PROLOGUE = [
 ];
 let proTimer = null;
 let proStep = 0;
-function showPrologue() {
-  proStep = 0;
-  $('prologue').classList.remove('hidden');
+function showPrologue() {                                  // 🎬 с 17.10 пролог — мультик (Марк), слайды остались запасом
   $('menu').classList.add('hidden');
-  drawPro();
+  запуститьМультик('пролог', endPrologue);
 }
 function drawPro() {
   const p2 = PROLOGUE[proStep];
@@ -8655,6 +8696,544 @@ function endPrologue() {
   setTimeout(() => blik('Я Блик, призрак этого замка. Морок и моих друзей забрал — заставил работать на себя.', 6), 7700);
   setTimeout(() => blik('Давай вместе? В соседнем мире стоит корабль — на нём догоним Морока.', 5.5), 14000);
 }
+
+/* =========================================================================
+   🎬 МУЛЬТИКИ (Марк 17.10.2026): вместо книжек и слайдов — настоящие сцены на движке игры,
+   как заставка с коробкой в «Засосало». Свои декорации, камера-оператор, голоса героев.
+   • пролог — Морок врывается в твой мир, отращивает пылесос, похищает друзей, ты летишь на ракете к замку;
+   • полёт в джунгли — корабль Морока сбивает нас над океаном;
+   • после космоса — речь Морока (слова Марка), пушка вытягивает символы, хохот, улетает.
+   ========================================================================= */
+let кино = null;
+const сглаж = t => t <= 0 ? 0 : t >= 1 ? 1 : t*t*(3 - 2*t);
+const промеж = (a, b, t) => a + (b - a)*t;
+const _кв = new THREE.Vector3(), _кв2 = new THREE.Vector3(), _кКв = new THREE.Quaternion(), _вверх = new THREE.Vector3(0, 1, 0);
+function киноГолосЕсть() { try { return speechMode === 'voice' && 'speechSynthesis' in window && speechSynthesis.getVoices().length > 0; } catch (_) { return false; } }
+function киноСказать(кто, текст, голос) {
+  const к = кино; if (!к) return;
+  const V = VOICES[голос] || VOICES[Object.keys(VOICES).find(k => кто.toLowerCase().includes(k))] || { rate:1 };
+  к.речьT0 = к.t; к.речьКонец = false; к.речьКонецT = null; к.голос = киноГолосЕсть();
+  к.оценка = к.голос ? текст.length/(13*(V.rate || 1)) + 0.8 : Math.max(2.6, текст.length/13 + 1.4);   // сколько говорить или читать
+  $('киноКто').textContent = кто; $('киноТекст').textContent = к.голос ? '' : текст; $('киноНиз').classList.add('есть');
+  if (к.голос) { const u = speak(кто, текст, голос); if (u) u.onend = u.onerror = () => { if (кино === к) к.речьКонец = true; }; }
+}
+function киноРечьДоговорена() {                       // реплика сказана (или прочитана) — кадр можно резать
+  const к = кино; if (к.речьT0 === null) return true;
+  const прошло = к.t - к.речьT0;
+  if (!к.голос) return прошло >= к.оценка;
+  if (к.речьКонец) { if (к.речьКонецT === null) к.речьКонецT = к.t; return прошло >= Math.min(к.оценка*0.4, 1.5) && к.t - к.речьКонецT >= 0.35; }
+  return прошло >= к.оценка*1.8 + 1.5;                // голос не сказал «конец» — страховка, чтобы мультик не встал
+}
+function киноВспышка(цвет, сила, сек) { const e = $('киноЗатемн'); e.style.transition = 'none'; e.style.background = цвет; e.style.opacity = сила;
+  void e.offsetWidth; e.style.transition = 'opacity ' + (сек || 0.6) + 's'; e.style.opacity = 0; }
+function киноЗатемнить(цвет, сек) { const e = $('киноЗатемн'); e.style.background = цвет; e.style.transition = 'opacity ' + (сек || 1) + 's'; e.style.opacity = 1; }
+function камера(x, y, z, tx, ty, tz) { camera.position.set(x, y, z); camera.lookAt(tx, ty, tz); кино.фокус.set(tx, ty, tz); }
+function камераОт(база, dx, dy, dz, цель, ox, oy, oz) {     // камера относительно движущегося объекта
+  camera.position.set(база.x + dx, база.y + dy, база.z + dz); _кв.set(цель.x + (ox || 0), цель.y + (oy || 0), цель.z + (oz || 0));
+  camera.lookAt(_кв); кино.фокус.copy(_кв); }
+
+function запуститьМультик(id, после) {
+  const Ф = МУЛЬТИКИ[id];
+  if (!Ф) { if (после) после(); return; }
+  try { speechSynthesis.cancel(); } catch (_) {}
+  clearWorld(); terrainKind = 'кино'; СТАРТ.x = 9999; СТАРТ.z = 9999;
+  кино = { id, Ф, после, i:-1, t:0, всего:0, ск:{}, речьT0:null, тряска:0, высота:null, цвет:null, дым:[], сказано:false, фокус:new THREE.Vector3() };
+  state = 'кино'; paused = false; travelling = false;
+  document.body.classList.add('кино'); $('кино').classList.remove('hidden');
+  const тм = $('киноЗатемн'); тм.style.transition = 'none'; тм.style.background = '#000'; тм.style.opacity = 1; void тм.offsetWidth; тм.style.transition = 'opacity .9s'; тм.style.opacity = 0;   // из черноты
+  for (const э of ['menu', 'prologue', 'chapter', 'pauseScreen', 'mapScreen', 'winScreen', 'subs']) $(э).classList.add('hidden');
+  Ф.собрать(кино.ск, кино);
+  flushFoliage(); markShadows(world);
+  if (Ф.музыка) startTheme(Ф.музыка);
+  киноКадр(0);
+}
+function киноКадр(i) {
+  const к = кино; к.i = i; к.t = 0; к.речьT0 = null; к.сказано = false;
+  $('киноКто').textContent = ''; $('киноТекст').textContent = ''; $('киноНиз').classList.remove('есть');
+  const кд = к.Ф.кадры[i]; if (кд.нач) кд.нач(к.ск, к);
+}
+function обновитьКино(dt) {
+  const к = кино; if (!к) return;
+  к.t += dt; к.всего += dt;
+  const кд = к.Ф.кадры[к.i];
+  if (кд.реплика && !к.сказано && к.t >= (кд.рт || 0)) { к.сказано = true; киноСказать(...кд.реплика); }
+  if (к.Ф.всегда) к.Ф.всегда(к.ск, dt, к);
+  if (кд.тик) кд.тик(к.ск, к.t, dt, к);
+  if (кино !== к) return;
+  if (кд.кам) кд.кам(к.ск, к.t, к);
+  if (к.тряска > 0) { camera.position.x += (Math.random() - 0.5)*к.тряска; camera.position.y += (Math.random() - 0.5)*к.тряска; к.тряска = Math.max(0, к.тряска - dt*1.6); }
+  киноДымТик(dt);
+  sun.target.position.copy(к.фокус); sun.position.copy(к.фокус).addScaledVector(sunPos, 120); sun.target.updateMatrixWorld(); sun.updateMatrixWorld();   // тень — там, куда смотрит камера
+  const готово = к.t >= (кд.длит || 0) && (!кд.реплика || (к.сказано && киноРечьДоговорена()));
+  if (готово) { if (к.i + 1 < к.Ф.кадры.length) киноКадр(к.i + 1); else кончитьМультик(); }
+}
+function кончитьМультик() {
+  const к = кино; if (!к) return;
+  кино = null;
+  try { speechSynthesis.cancel(); } catch (_) {}
+  const тм = $('киноЗатемн');                         // мир строится под чернотой (или белым), потом проявляется
+  if (+getComputedStyle(тм).opacity < 0.95) { тм.style.transition = 'none'; тм.style.background = '#000'; тм.style.opacity = 1; }
+  document.body.classList.remove('кино'); sky.visible = true; stopTheme();
+  if (к.после) к.после();
+  setTimeout(() => { if (кино) return; тм.style.transition = 'opacity .8s'; тм.style.opacity = 0; setTimeout(() => { if (!кино) $('кино').classList.add('hidden'); }, 850); }, 150);
+}
+$('киноПропуск').addEventListener('click', e => { e.stopPropagation(); кончитьМультик(); });
+function киноПрыг(i) {                               // 🧪 для проверки: перескочить к кадру, доделав предыдущие
+  const к = кино; if (!к) return null;
+  for (let j = к.i; j < i; j++) { const кд = к.Ф.кадры[j]; if (j > к.i && кд.нач) кд.нач(к.ск, к); if (кд.итог) кд.итог(к.ск, к); }
+  киноКадр(i); return i;
+}
+
+/* 💨 дым и пыль: свои клубы, живут пару секунд */
+const дымГео = new THREE.SphereGeometry(1, 10, 8);
+function киноДым(x, y, z, цвет, r, v, жизнь) {
+  if (кино.дым.length > 170) return;
+  const м = new THREE.Mesh(дымГео, new THREE.MeshStandardMaterial({ color:цвет, roughness:1, transparent:true, opacity:0.8, depthWrite:false }));
+  м.position.set(x, y, z); м.scale.setScalar(r*0.4); world.add(м);
+  кино.дым.push({ м, v:v || new THREE.Vector3((Math.random() - 0.5)*1.6, 1 + Math.random(), (Math.random() - 0.5)*1.6), t:0, жизнь:жизнь || 2.2, r });
+}
+function киноДымТик(dt) { const д = кино.дым;
+  for (let i = д.length - 1; i >= 0; i--) { const п = д[i]; п.t += dt; const k = п.t/п.жизнь;
+    п.м.position.addScaledVector(п.v, dt); п.v.multiplyScalar(1 - dt*0.7); п.м.scale.setScalar(п.r*(0.4 + k*1.3)); п.м.material.opacity = 0.8*(1 - k);
+    if (k >= 1) { world.remove(п.м); п.м.material.dispose(); д.splice(i, 1); } } }
+
+/* 🧍 герои мультика: те же человечки, что в игре */
+function киноЧеловек(цвет, костюм, шляпа, x, z, пов) { const h = makeHero(цвет, костюм, шляпа); addOutline(h, 0.05); h.position.set(x, heightAt(x, z), z); h.rotation.y = пов || 0; world.add(h); h.userData.фаза = Math.random()*6; return h; }
+function киноШаг(h, dt, скор) { const u = h.userData; if (!u.legs) return; u.фаза += dt*(4 + скор*1.6); const a = Math.sin(u.фаза)*Math.min(1, скор/5)*0.85;
+  u.legs[0].rotation.x = a; u.legs[1].rotation.x = -a; u.arms[0].rotation.x = -a*0.9; u.arms[1].rotation.x = a*0.9; u.arms[0].rotation.z = u.arms[1].rotation.z = 0; }
+function киноИдти(h, tx, tz, скор, dt) {               // шагает к точке, поворачиваясь лицом; true — дошёл
+  const dx = tx - h.position.x, dz = tz - h.position.z, d = Math.hypot(dx, dz);
+  if (d < 0.15) { киноШаг(h, dt, 0); return true; }
+  const ш = Math.min(d, скор*dt); h.position.x += dx/d*ш; h.position.z += dz/d*ш; h.position.y = heightAt(h.position.x, h.position.z);
+  h.rotation.y = Math.atan2(dx, dz); киноШаг(h, dt, скор); return false; }
+function киноЛицом(h, x, z) { h.rotation.y = Math.atan2(x - h.position.x, z - h.position.z); }
+function киноРукиВверх(h, k) { const u = h.userData; if (!u.arms) return; u.arms[0].rotation.x = u.arms[1].rotation.x = -2.6*k; u.arms[0].rotation.z = 0.3*k; u.arms[1].rotation.z = -0.3*k; }
+/* 💙 Блик — тот же призрак, что в игре */
+function киноБлик(x, y, z) { const g = makeGhost(); world.add(g); g.traverse(o => { o.castShadow = false; o.receiveShadow = false; }); g.position.set(x, y, z); g.userData.резетШлейф(); return g; }
+function киноБликТик(g, dt, смотрит) { const u = g.userData; if (!u.tick) return; if (смотрит) u.watch.copy(смотрит); else u.watch.copy(camera.position);
+  u.faceTo.copy(camera.position); u.свойРазворот = true; u.glow = 0; u.действие = ''; u.tick(dt); }
+/* 👑 Морок — то же тело, что у босса */
+function киноМорок(x, y, z) { const g = new THREE.Group(); makeMorokBody(g); g.position.set(x, y, z); world.add(g); return g; }
+function киноМорокТик(g, T, размах) { const u = g.userData, р = размах === undefined ? 0.35 : размах;
+  (u.tent || []).forEach(t => { t.group.rotation.x = Math.sin(T*1.7 + t.phase)*р; t.group.rotation.z = Math.cos(T*1.4 + t.phase)*р; });
+  if (u.mask) u.mask.rotation.y += 0.01; if (u.cloak) u.cloak.material.opacity = 0.86 + Math.sin(T*2.2)*0.1; }
+/* 🚁 наш корабль-квадрокоптер (из игры) */
+function киноКорабль(x, y, z) { const s = buildShip(x, z); ship = null; s.mesh.position.y = y; return s; }
+
+/* 🌀 спираль для раструба пылесоса и пушки */
+function спиральТекс(цвет1, цвет2) { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = цвет2; g.fillRect(0, 0, 128, 128); g.strokeStyle = цвет1; g.lineWidth = 7;
+  for (let r = 0; r < 4; r++) { g.beginPath(); for (let a = 0; a < 12; a += 0.1) { const rr = a*5.2; g.lineTo(64 + Math.cos(a + r*Math.PI/2)*rr, 64 + Math.sin(a + r*Math.PI/2)*rr); } g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+const яркий = (c, k) => new THREE.MeshBasicMaterial({ color:new THREE.Color(c).multiplyScalar(k || 3), fog:false });
+
+/* ═══════════ 🏡 ДЕКОРАЦИИ ПРОЛОГА ═══════════ */
+function киноДомик(x, z) {
+  const g = new THREE.Group(), стены = plastic(0xf1e4c8, 0.85), крыша = plastic(0xb5452e, 0.7), дерево = plastic(0x7c4a2a, 0.8);
+  const кор = (w, h, d, px, py, pz, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(px, py, pz); g.add(b); return b; };
+  кор(9, 5, 7, 0, 2.5, 0, стены);
+  const ф = new THREE.Shape(); ф.moveTo(-3.6, 0); ф.lineTo(3.6, 0); ф.lineTo(0, 2.7); ф.lineTo(-3.6, 0);
+  const щип = new THREE.Mesh(new THREE.ExtrudeGeometry(ф, { depth:9, bevelEnabled:false }), стены); щип.rotation.y = Math.PI/2; щип.position.set(-4.5, 5, 0); g.add(щип);
+  for (const s of [-1, 1]) { const ск = кор(9.8, 0.35, 4.9, 0, 6.3, s*1.85, крыша); ск.rotation.x = s*0.64; }
+  кор(0.9, 2.4, 0.9, 2.4, 7, -1.2, plastic(0x9a4a35, 0.9));                               // труба
+  кор(1.5, 2.5, 0.2, 0, 1.25, 3.55, дерево); const ручка = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), metalM(0xe4c77b, 0.3)); ручка.position.set(0.5, 1.2, 3.7); g.add(ручка);
+  for (const wx of [-2.8, 2.8]) { кор(1.5, 1.3, 0.12, wx, 2.9, 3.52, emisM(0xffd98a, 0.7)); кор(1.7, 0.12, 0.2, wx, 2.9, 3.6, plastic(0xffffff, 0.6)); кор(0.12, 1.5, 0.2, wx, 2.9, 3.6, plastic(0xffffff, 0.6)); }
+  кор(2.6, 0.2, 1.4, 0, 0.1, 4.3, plastic(0x8d8577, 0.9));                                 // крыльцо
+  g.position.set(x, 0, z); return g;
+}
+function киноЗабор(g, R1, R2) {                        // штакетник вокруг двора (одним InstancedMesh)
+  const пики = [], шаг = 0.7;
+  for (let x = -R1; x <= R1; x += шаг) { пики.push([x, R2]); пики.push([x, -R2]); }
+  for (let z = -R2 + шаг; z < R2; z += шаг) { пики.push([-R1, z]); пики.push([R1, z]); }
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.18, 1.3, 0.1), plastic(0xf8fafc, 0.7), пики.length), м4 = new THREE.Matrix4();
+  пики.forEach(([x, z], i) => { м4.makeTranslation(x, 0.65, z); im.setMatrixAt(i, м4); }); g.add(im);
+}
+function киноРакета() {                               // 🚀 старая ракета за сараем: заплатки, плавники, окошко
+  const g = new THREE.Group(), бел = plastic(0xe5e7eb, 0.45), кр = plastic(0xd8392b, 0.5), сер = metalM(0x6b7280, 0.4);
+  const тело = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.2, 5.2, 24), бел); тело.position.y = 3.2; g.add(тело);
+  const нос = new THREE.Mesh(new THREE.ConeGeometry(1.05, 2.3, 24), кр); нос.position.y = 6.95; g.add(нос);
+  for (const y of [1.3, 5.2]) { const п = new THREE.Mesh(new THREE.CylinderGeometry(1.13, 1.13, 0.4, 24), кр); п.position.y = y; g.add(п); }
+  for (let i = 0; i < 3; i++) { const пл = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.9, 1.5), кр); const a = i/3*Math.PI*2;
+    пл.position.set(Math.sin(a)*1.35, 1.2, Math.cos(a)*1.35); пл.rotation.y = a; g.add(пл); }
+  const сопло = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.85, 0.8, 18), сер); сопло.position.y = 0.4; g.add(сопло);
+  const окно = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.09, 8, 20), metalM(0xe4c77b, 0.3)); окно.position.set(0, 4.3, 1.08); g.add(окно);
+  const стекло = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshStandardMaterial({ color:0x7dd3fc, roughness:0.1, transparent:true, opacity:0.6 })); стекло.position.set(0, 4.3, 1.1); g.add(стекло);
+  for (const [y, a] of [[2.3, 0.6], [3.7, -1.9], [4.9, 2.4]]) { const з = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.06), plastic(0x8a8f99, 0.9)); з.position.set(Math.sin(a)*1.1, y, Math.cos(a)*1.1); з.rotation.y = a; g.add(з); }   // заплатки
+  const огонь = new THREE.Group(); огонь.position.y = -0.2; g.add(огонь); огонь.visible = false;
+  const о1 = new THREE.Mesh(new THREE.ConeGeometry(0.75, 3.2, 14), яркий(0xff7a1a, 2.6)); о1.rotation.x = Math.PI; о1.position.y = -1.4; огонь.add(о1);
+  const о2 = new THREE.Mesh(new THREE.ConeGeometry(0.4, 2.0, 12), яркий(0xfff1a8, 3.2)); о2.rotation.x = Math.PI; о2.position.y = -0.9; огонь.add(о2);
+  g.userData = { огонь, окно:стекло }; return g;
+}
+function киноТрещина() {                               // ⚡ трещина в небе: светящиеся изломы
+  const g = new THREE.Group(), м = яркий(0xe9d5ff, 3.4);
+  const ломаная = (pts, r) => g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0), pts.length*4, r, 5), м));
+  const осн = []; for (let i = 0; i <= 12; i++) осн.push(new THREE.Vector3(-24 + i*4, (Math.random() - 0.5)*7, 0)); ломаная(осн, 0.55);
+  for (let b = 0; b < 6; b++) { const p = [осн[1 + b*2].clone()]; for (let k = 0; k < 4; k++) p.push(p[p.length - 1].clone().add(new THREE.Vector3((Math.random() - 0.5)*5, (b % 2 ? -1 : 1)*(2 + Math.random()*3), 0))); ломаная(p, 0.28); }
+  return g;
+}
+function киноДыра() {                                  // 🕳 дыра в небе, куда уходят провода
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.CircleGeometry(9, 48), new THREE.MeshBasicMaterial({ color:0x1e0b3a, fog:false })));
+  const обод = new THREE.Mesh(new THREE.TorusGeometry(9, 0.5, 10, 64), яркий(0xc084fc, 3)); g.add(обод);
+  const вихрь = new THREE.Mesh(new THREE.CircleGeometry(8.6, 48), new THREE.MeshBasicMaterial({ map:спиральТекс('#7c3aed', '#1e0b3a'), transparent:true, opacity:0.7, fog:false })); вихрь.position.z = 0.05; g.add(вихрь);
+  g.userData.вихрь = вихрь; return g;
+}
+function киноПровод(от, до, провис) {                  // 🔌 провод Морока: из дыры в землю, растёт по длине
+  const сер = от.clone().lerp(до, 0.5); сер.y -= провис || 6;
+  const кривая = new THREE.CatmullRomCurve3([от, от.clone().lerp(сер, 0.5).add(new THREE.Vector3(0, 2, 0)), сер, до]);
+  const geo = new THREE.TubeGeometry(кривая, 80, 0.24, 6); const м = new THREE.Mesh(geo, emisM(0x8b5cf6, 1.5)); м.userData.кривая = кривая; geo.setDrawRange(0, 0); return м;
+}
+function киноПроводДлина(м, k) { const n = м.geometry.index.count; м.geometry.setDrawRange(0, Math.floor(n*Math.max(0, Math.min(1, k))/6)*6); }
+function киноПылесос() {                               // 🌀 пылесос, который Морок отращивает на руке
+  const g = new THREE.Group(), тём = plastic(0x1c1030, 0.8), м = metalM(0x9ca3af, 0.3);
+  const рука = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, -0.2, 1.0), new THREE.Vector3(0.8, -0.5, 2.2)]);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(рука, 20, 0.34, 10), тём));
+  for (let i = 1; i < 6; i++) { const p = рука.getPoint(i/6), кольцо = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.06, 6, 16), emisM(0x7c3aed, 1.6)); кольцо.position.copy(p); кольцо.lookAt(рука.getPoint(Math.min(1, i/6 + 0.05))); g.add(кольцо); }
+  const раструб = new THREE.Group(); раструб.position.set(0.8, -0.5, 2.3); g.add(раструб);
+  const конус = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 0.42, 1.8, 24, 1, true), new THREE.MeshStandardMaterial({ color:0x9ca3af, metalness:0.85, roughness:0.3, side:THREE.DoubleSide })); конус.rotation.x = Math.PI/2; конус.position.z = 0.9; раструб.add(конус);
+  const обод = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.12, 8, 32), яркий(0xc084fc, 2.6)); обод.position.z = 1.8; раструб.add(обод);
+  const вихрь = new THREE.Mesh(new THREE.CircleGeometry(1.05, 32), new THREE.MeshBasicMaterial({ map:спиральТекс('#c084fc', '#1e0b3a'), fog:false })); вихрь.position.z = 1.6; раструб.add(вихрь);
+  const рот = new THREE.Object3D(); рот.position.z = 1.9; раструб.add(рот);
+  g.userData = { вихрь, рот, м }; return g;
+}
+function киноМяч() { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d');
+  ['#ef4444', '#facc15', '#3b82f6', '#ffffff', '#22c55e', '#ffffff'].forEach((цв, i) => { x.fillStyle = цв; x.fillRect(i*128/6, 0, 128/6 + 1, 64); });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.SphereGeometry(0.38, 20, 14), new THREE.MeshStandardMaterial({ map:t, roughness:0.4 })); }
+function киноЗамок() {                                 // 🏰 развалины замка — Место крушения
+  const g = new THREE.Group(), к = matRock(2);
+  const башня = (x, z, r, h, сломана) => { const б = new THREE.Mesh(new THREE.CylinderGeometry(r, r*1.08, h, 18), к); б.position.set(x, h/2, z); g.add(б);
+    for (let i = 0; i < 10; i++) { if (сломана && i % 3 === 0) continue; const a = i/10*Math.PI*2, зуб = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.3, 0.9), к); зуб.position.set(x + Math.cos(a)*r*0.92, h + 0.6, z + Math.sin(a)*r*0.92); зуб.rotation.y = -a; g.add(зуб); } };
+  башня(-15, 0, 3.4, 15); башня(13, -2, 3, 11, true); башня(-4, -12, 4.2, 19); башня(22, 10, 2.6, 7, true);
+  for (const [x1, z1, x2, z2, h] of [[-15, 0, -4, -12, 8], [-4, -12, 13, -2, 6], [13, -2, 22, 10, 4]]) { const д = Math.hypot(x2 - x1, z2 - z1), ст = new THREE.Mesh(new THREE.BoxGeometry(д*0.82, h, 1.6), к);
+    ст.position.set((x1 + x2)/2, h/2, (z1 + z2)/2); ст.rotation.y = -Math.atan2(z2 - z1, x2 - x1); g.add(ст); }
+  for (let i = 0; i < 26; i++) { const об = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + Math.random()*1.4, 0), к); об.position.set((Math.random() - 0.5)*44, 0.3, 4 + (Math.random() - 0.5)*24); об.rotation.set(Math.random()*3, Math.random()*3, 0); g.add(об); }
+  return g;
+}
+
+/* ═══════════ 🎞 ПРОЛОГ: «Морок врывается» ═══════════ */
+function киноГрозаНебо(с) { if (!sky.visible) return; sky.visible = false; scene.background = new THREE.Color(0x1d1030); с.пелена.material.opacity = 1; envStrength(0.22); }
+const ДРУЗЬЯ = [{ цвет:0xe23b3b, костюм:'tshirt', шляпа:'cap', x:-4, z:4 }, { цвет:0xff6ec7, костюм:'dress', шляпа:'straw', x:4, z:6 }, { цвет:0x37c85a, костюм:'jumpsuit', шляпа:'ears', x:-8, z:1 }];
+const ДЫРА = new THREE.Vector3(0, 46, -62), МОРОК_ЗЕМЛЯ = new THREE.Vector3(0, 0, -3), РАКЕТА_МЕСТО = new THREE.Vector3(12, 0, 3);
+const МУЛЬТИКИ = {};
+МУЛЬТИКИ.пролог = {
+  музыка:'forest',
+  собрать(с) {
+    applyWorldLook('forest');
+    buildTerrain();
+    grassMesh = buildGrass(МОБИЛА ? 9000 : 20000, 120, -5, 0.7, 0x3f8f33, 0x6ab84a);
+    makeFlowers(70, 70);
+    for (const [x, z, вид] of [[-17, -6, 'leafy'], [16, -13, 'leafy'], [-13, 13, 'leafy'], [20, 12, 'leafy'], [-6, -26, 'pine'], [7, -28, 'pine'], [-22, -22, 'pine'], [26, -6, 'pine'], [-28, 6, 'leafy'], [30, 24, 'leafy']]) makeTree(x, z, вид);
+    for (let i = 0; i < 12; i++) makeBush((Math.random() - 0.5)*60, -18 - Math.random()*10);
+    с.двор = new THREE.Group(); world.add(с.двор);
+    с.дом = киноДомик(0, -14); с.двор.add(с.дом); киноЗабор(с.двор, 22, 18);
+    const сарай = new THREE.Mesh(new THREE.BoxGeometry(4.4, 3.2, 4.2), plastic(0x8b5a33, 0.85)); сарай.position.set(16.5, 1.6, -2); с.двор.add(сарай);
+    const кс = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.3, 4.6), plastic(0x5b3a22, 0.8)); кс.position.set(16.5, 3.3, -2); кс.rotation.z = 0.15; с.двор.add(кс);
+    с.ракета = киноРакета(); с.ракета.position.copy(РАКЕТА_МЕСТО); с.ракета.rotation.y = -1.0; world.add(с.ракета);
+    с.мяч = киноМяч(); с.мяч.position.set(0, 1, 5); world.add(с.мяч);
+    с.я = киноЧеловек(COLORS[save.color].hex, save.suit, save.hat, -5, 2, 0);
+    с.друзья = ДРУЗЬЯ.map(д => киноЧеловек(д.цвет, д.костюм, д.шляпа, д.x, д.z, 0));
+    с.мини = makeHero(COLORS[save.color].hex, save.suit, save.hat); с.мини.scale.setScalar(0.34); с.мини.position.set(0, 3.75, 0.98); с.мини.visible = false; с.ракета.add(с.мини);   // ты в окошке ракеты
+    // небо: трещина, дыра, провода, грозовая пелена
+    с.трещина = киноТрещина(); с.трещина.position.copy(ДЫРА).add(new THREE.Vector3(0, 0, -1)); с.трещина.scale.set(0.001, 1, 1); world.add(с.трещина);
+    с.дыра = киноДыра(); с.дыра.position.copy(ДЫРА); с.дыра.scale.setScalar(0.001); world.add(с.дыра);
+    с.провода = [[-6, -1], [0, -3], [6, -1]].map(([x, z], i) => { const п = киноПровод(ДЫРА.clone().add(new THREE.Vector3((i - 1)*4, -2, 0)), new THREE.Vector3(x, 0.2, z), 7); world.add(п); return п; });
+    с.пелена = new THREE.Mesh(new THREE.SphereGeometry(260, 24, 16), new THREE.MeshBasicMaterial({ color:0x2a1745, side:THREE.BackSide, transparent:true, opacity:0, fog:false, depthWrite:false })); world.add(с.пелена);
+    с.L0 = { si:sun.intensity, hi:hemi.intensity, expo:renderer.toneMappingExposure, hc:hemi.color.clone(), fc:scene.fog.color.clone(), fd:scene.fog.density };
+    с.гроза = 0;
+    с.морок = киноМорок(ДЫРА.x, ДЫРА.y, ДЫРА.z); с.морок.visible = false;
+    с.пыл = киноПылесос(); с.пыл.position.set(1.7, 5.2, 0.5); с.пыл.scale.setScalar(0.001); с.пыл.visible = false; с.морок.add(с.пыл);
+    с.кольца = []; for (let i = 0; i < 6; i++) { const к = new THREE.Mesh(new THREE.TorusGeometry(1, 0.07, 6, 28), new THREE.MeshBasicMaterial({ color:0xc084fc, transparent:true, opacity:0, fog:false })); к.visible = false; world.add(к); с.кольца.push({ к, ф:i/6 }); }
+    с.тоннель = new THREE.Group(); с.тоннель.visible = false; world.add(с.тоннель); с.тоннель.position.y = 1000;
+    for (let i = 0; i < 26; i++) { const к = new THREE.Mesh(new THREE.TorusGeometry(13, 0.35, 8, 48), яркий(i % 2 ? 0x22d3ee : 0xa855f7, 2.2)); к.position.z = -i*14; с.тоннель.add(к); }
+    for (let i = 0; i < 70; i++) { const a = Math.random()*Math.PI*2, r = 9 + Math.random()*3, л = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 5 + Math.random()*5), яркий(0xe9d5ff, 1.6)); л.position.set(Math.cos(a)*r, Math.sin(a)*r, -Math.random()*360); с.тоннель.add(л); }
+    с.замок = киноЗамок(); с.замок.position.set(0, 0, -78); с.замок.visible = false; world.add(с.замок);
+  },
+  всегда(с, dt, к) {
+    if (с.дыра.visible) с.дыра.userData.вихрь.rotation.z -= dt*1.4;
+    if (с.морок.visible) киноМорокТик(с.морок, к.всего, с.размах || 0.35);
+    if (с.пыл.visible) с.пыл.userData.вихрь.rotation.z += dt*9;
+    if (с.пламя) { const о = с.ракета.userData.огонь; о.visible = Math.random() > (с.глохнет || 0); о.scale.set(1 + Math.random()*0.15, (0.8 + Math.random()*0.5)*(с.пламя), 1 + Math.random()*0.15); }
+  },
+  кадры: [
+    { длит:6.5, реплика:['📖 рассказчик', 'Ты живёшь дома, с друзьями. Обычный день: беготня во дворе, смех — ничего плохого.'], рт:0.6,
+      тик(с, t, dt) {                                  // мяч летает между друзьями, а ты с третьим бегаешь вокруг дерева
+        const [a, b, c] = с.друзья, ф = (t % 2.4)/2.4, туда = Math.floor(t/2.4) % 2 === 0, A = туда ? a : b, B = туда ? b : a;
+        с.мяч.position.set(промеж(A.position.x, B.position.x, ф), 1.1 + Math.sin(ф*Math.PI)*4, промеж(A.position.z, B.position.z, ф)); с.мяч.rotation.x += dt*6;
+        киноЛицом(a, b.position.x, b.position.z); киноЛицом(b, a.position.x, a.position.z); киноРукиВверх(A, ф < 0.15 ? 1 - ф/0.15 : 0); киноРукиВверх(B, ф > 0.8 ? (ф - 0.8)/0.2 : 0);
+        for (const [h, сдв] of [[с.я, 0], [c, 2.4]]) { const уг = t*1.1 + сдв, x = -11 + Math.cos(уг)*4, z = 5 + Math.sin(уг)*4; h.position.set(x, 0, z); h.rotation.y = Math.atan2(-Math.sin(уг), Math.cos(уг)); киноШаг(h, dt, 5); } },
+      кам(с, t) { камера(13 - t*0.7, 4.6, 17, -4, 1.6, 2); } },
+    { длит:5.5, реплика:['📖 рассказчик', 'Но вдруг небо потемнело… и треснуло!'], рт:0.4,
+      нач(с) { startTheme('lair'); },
+      тик(с, t, dt) { с.гроза = Math.min(1, с.гроза + dt/3); const k = сглаж(с.гроза), L = с.L0;
+        sun.intensity = промеж(L.si, 0.5, k); hemi.intensity = промеж(L.hi, 0.32, k); hemi.color.lerpColors(L.hc, new THREE.Color(0x8b5cf6), k*0.7);
+        scene.fog.color.lerpColors(L.fc, new THREE.Color(0x3b2a55), k); renderer.toneMappingExposure = промеж(L.expo, L.expo*0.7, k); с.пелена.material.opacity = 0.985*k;
+        if (k > 0.97 && sky.visible) киноГрозаНебо(с);   // небо HDR-яркое: даже 2% просвечивают — в конце меняем его на грозовое
+        с.мяч.position.y = Math.max(0.38, с.мяч.position.y - dt*8);
+        for (const h of [с.я, ...с.друзья]) { киноЛицом(h, ДЫРА.x, ДЫРА.z); киноШаг(h, dt, 0); киноРукиВверх(h, 0); h.userData.head.rotation.x = -0.45*k; }
+        if (t > 2.4) { с.трещина.scale.x = Math.min(1, (t - 2.4)/0.5); if (!с.треск) { с.треск = true; sfx('boss'); киноВспышка('#f5f3ff', 0.8, 0.7); кино.тряска = 0.5; } }
+        if (t > 3.3) с.дыра.scale.setScalar(сглаж((t - 3.3)/1.6)); },
+      итог(с) { с.гроза = 1; с.трещина.scale.x = 1; с.дыра.scale.setScalar(1); с.пелена.material.opacity = 0.985; sun.intensity = 0.5; hemi.intensity = 0.32; renderer.toneMappingExposure = с.L0.expo*0.7; киноГрозаНебо(с); },
+      кам(с, t) { камера(7, 1.6, 15, промеж(0, ДЫРА.x, сглаж(t/2)), промеж(3, ДЫРА.y*0.8, сглаж(t/2)), промеж(0, ДЫРА.z, сглаж(t/2))); } },
+    { длит:5.5, реплика:['📖 рассказчик', 'И по проводам, прямо из трещины, к тебе во двор спускается он.'], рт:2.4,
+      нач(с) { с.морок.visible = true; },
+      тик(с, t, dt) { с.провода.forEach((п, i) => киноПроводДлина(п, (t - i*0.25)/1.3));
+        if (t > 0.9 && !с.искры) { с.искры = true; for (const п of с.провода) { const e = п.userData.кривая.getPoint(1); puff(e.x, 0.4, e.z, 0xc084fc, 14); shockwave(e.x, 0.2, e.z, 3, 0xc084fc); } sfx('portal'); }
+        const k = сглаж((t - 1.4)/2.6); с.провода[1].userData.кривая.getPoint(k, с.морок.position); с.морок.position.y += Math.sin(t*1.1)*0.3*(k < 1 ? 0 : 1);
+        if (k >= 1 && !с.сел) { с.сел = true; с.морок.position.copy(МОРОК_ЗЕМЛЯ); shockwave(0, 0.3, -3, 7, 0x8b5cf6); кино.тряска = 0.6; sfx('shade'); }
+        for (const h of [с.я, ...с.друзья]) { киноЛицом(h, с.морок.position.x, с.морок.position.z); h.userData.head.rotation.x = -0.3*(1 - k); } },
+      итог(с) { с.провода.forEach(п => киноПроводДлина(п, 1)); с.морок.position.copy(МОРОК_ЗЕМЛЯ); с.сел = true; с.морок.visible = true; },
+      кам(с, t) { камера(-7, 3.5, 21, 0, промеж(22, 5, сглаж((t - 1)/3)), -10); } },
+    { длит:2.5, реплика:['👑 Морок', 'У меня большой проект!'], рт:0.3,
+      тик(с, t) { с.морок.position.y = 0.6 + Math.sin(t*1.1)*0.3; },
+      кам(с, t) { камера(2.2, 4.6, 7.8 - t*0.3, 0, 6.3, -3); } },
+    { длит:3, реплика:['👑 Морок', 'Я строю КОШМАРАТОР — устройство, которое сотрёт весь мир. И мне нужны добровольцы!'], рт:0.2,
+      тик(с, t, dt) { с.морок.position.y = 0.6 + Math.sin(t*1.1)*0.3; for (const h of с.друзья) { if (h.position.z < 9.5) { h.position.z += dt*0.5; киноШаг(h, dt, 1.2); } киноЛицом(h, 0, -3); } },
+      кам(с, t) { камера(-10, 4.5, 6.5, 0, 4.2, 0); } },
+    { длит:4.5, реплика:['👑 Морок', 'Хо-хо… А вот и мой пылесос для добровольцев!'], рт:1.6,
+      нач(с) { с.пыл.visible = true; sfx('super'); },
+      тик(с, t) { const k = Math.min(1, t/1.4), упр = k < 1 ? k + Math.sin(k*Math.PI*3)*0.25*(1 - k) : 1; с.пыл.scale.setScalar(Math.max(0.001, упр)); с.размах = 0.35 + 0.6*Math.max(0, 1 - Math.abs(t - 0.7)); с.морок.position.y = 0.6 + Math.sin(t*1.1)*0.3; },
+      итог(с) { с.пыл.visible = true; с.пыл.scale.setScalar(1); с.размах = 0.35; },
+      кам(с, t) { камера(10, 5.5, 3, 1.4, 5, -1); } },
+    { длит:7.5, реплика:['👧 Подружка', 'Помогите!', '_подружка'], рт:1.2,
+      нач(с) { с.тяга = 0; sfx('portal'); с.кольца.forEach(р => р.к.visible = true); с.летят = с.друзья.map((h, i) => ({ h, t0:0.8 + i*1.6, из:h.position.clone(), сел:false })); },
+      тик(с, t, dt) { с.морок.position.y = 0.6 + Math.sin(t*1.1)*0.3;
+        const рот = с.пыл.userData.рот.getWorldPosition(_кв2), вперёд = _кв.set(0.35, -0.25, 1).normalize();
+        с.кольца.forEach(р => { const ф = (р.ф + t*0.7) % 1, д = (1 - ф)*10; р.к.position.copy(рот).addScaledVector(вперёд, д); р.к.lookAt(рот); р.к.scale.setScalar(0.4 + (1 - ф)*2.6); р.к.material.opacity = 0.75*Math.sin(ф*Math.PI); });
+        if (Math.random() < dt*25) { const д = 4 + Math.random()*7; киноДым(рот.x + вперёд.x*д + (Math.random() - 0.5)*5, рот.y + (Math.random() - 0.5)*4, рот.z + вперёд.z*д, 0xa78bfa, 0.5, вперёд.clone().multiplyScalar(-7 - Math.random()*4), 1.2); }
+        for (const л of с.летят) { if (л.сел) continue; const k = (t - л.t0)/2.0; if (k < 0) { киноШаг(л.h, dt, 0); киноРукиВверх(л.h, 1); continue; }
+          if (k >= 1) { л.сел = true; л.h.visible = false; puff(рот.x, рот.y, рот.z, 0xe9d5ff, 12); sfx('coin'); if (л.h === с.друзья[0] && !с.кр2) { с.кр2 = true; } continue; }
+          const e = сглаж(k), уг = k*9; л.h.position.set(промеж(л.из.x, рот.x, e) + Math.cos(уг)*(1 - e)*1.6, промеж(л.из.y, рот.y, e) + Math.sin(k*Math.PI)*2.5, промеж(л.из.z, рот.z, e) + Math.sin(уг)*(1 - e)*1.6);
+          л.h.scale.setScalar(1 - 0.85*e); л.h.rotation.z += dt*7; киноРукиВверх(л.h, 1); }
+        if (!с.яБегу) { с.я.position.set(-1, 0, 10.5); с.яБегу = true; } киноЛицом(с.я, 0, -3); киноШаг(с.я, dt, 6); с.я.position.z = 10.5 + Math.sin(t*3)*0.15; },
+      итог(с) { с.друзья.forEach(h => h.visible = false); с.кольца.forEach(р => р.к.visible = false); },
+      кам(с, t) { камера(-5.5, 3.6, 17, 0.5, 3.6, -1); } },
+    { длит:2.6, реплика:['👦 Ты', 'Друзья! Нет!', '_герой'], рт:0.1,
+      нач(с) { с.друзья.forEach(h => h.visible = false); },
+      тик(с, t, dt) { с.кольца.forEach(р => р.к.material.opacity *= 0.9); киноШаг(с.я, dt, 0); киноРукиВверх(с.я, 0.6); },
+      кам(с, t) { камераОт(с.я.position, 1.6, 2.2, -3.4, с.я.position, 0, 1.6, 0); } },
+    { длит:4.8, реплика:['👑 Морок', 'Спасибо за помощников! Хо-хо-хо!'], рт:0.2,
+      нач(с) { с.кольца.forEach(р => р.к.visible = false); },
+      тик(с, t, dt) { с.пыл.scale.setScalar(Math.max(0.001, 1 - t/1.2)); if (t > 1.2) с.пыл.visible = false;
+        const k = сглаж((t - 1.2)/2.8); с.провода[1].userData.кривая.getPoint(1 - k, с.морок.position); if (k <= 0) с.морок.position.copy(МОРОК_ЗЕМЛЯ).setY(0.6);
+        if (k >= 1) с.морок.visible = false; if (t > 3.6) с.провода.forEach(п => киноПроводДлина(п, 1 - (t - 3.6)/1)); киноЛицом(с.я, с.морок.position.x, с.морок.position.z); },
+      итог(с) { с.морок.visible = false; с.пыл.visible = false; с.провода.forEach(п => киноПроводДлина(п, 0)); },
+      кам(с, t) { камера(11, 3, 13, с.морок.position.x, Math.max(4, с.морок.position.y + 3), с.морок.position.z); } },
+    { длит:4.6, реплика:['📖 рассказчик', 'Ты бросаешься к старой ракете за сараем. Она давно не летала… но выбора нет!'], рт:0.3,
+      нач(с) { с.морок.visible = false; с.я.visible = true; с.я.position.set(-1, 0, 10.5); },
+      тик(с, t, dt) { const дошёл = киноИдти(с.я, РАКЕТА_МЕСТО.x - 1.8, РАКЕТА_МЕСТО.z + 1.6, 6.5, dt);
+        if (дошёл) { с.впрыг = (с.впрыг || 0) + dt; const k = Math.min(1, с.впрыг/0.6); с.я.position.y = Math.sin(k*Math.PI)*2.4 + k*1.5; с.я.scale.setScalar(Math.max(0.01, 1 - k)); if (k >= 1 && !с.внутри) { с.внутри = true; с.я.visible = false; с.мини.visible = true; sfx('open'); } } },
+      итог(с) { с.я.visible = false; с.мини.visible = true; с.внутри = true; },
+      кам(с, t) { камера(-3, 3.2, 14, промеж(с.я.position.x, РАКЕТА_МЕСТО.x, 0.5), 2.6, промеж(с.я.position.z, РАКЕТА_МЕСТО.z, 0.5)); } },
+    { длит:5.2, реплика:['👦 Ты', 'Держитесь, друзья! Я лечу за вами!', '_герой'], рт:0.2,
+      нач(с) { с.я.visible = false; с.мини.visible = true; с.пламя = 0.4; startTheme('fight'); sfx('super'); },
+      тик(с, t, dt) { const р = с.ракета;
+        if (Math.random() < dt*30) киноДым(РАКЕТА_МЕСТО.x + (Math.random() - 0.5)*3, 0.6, РАКЕТА_МЕСТО.z + (Math.random() - 0.5)*3, 0xe5e7eb, 1.6 + Math.random(), new THREE.Vector3((Math.random() - 0.5)*6, 0.8, (Math.random() - 0.5)*6), 2.6);
+        if (t < 1.6) { с.пламя = 0.4 + t*0.4; р.position.x = РАКЕТА_МЕСТО.x + (Math.random() - 0.5)*0.08; кино.тряска = 0.15; return; }
+        с.пламя = 1.3; const k = Math.min(1, ((t - 1.6)/3.4)**2);
+        const p0 = РАКЕТА_МЕСТО, p1 = _кв.set(РАКЕТА_МЕСТО.x, 34, 2), p2 = ДЫРА; const u = 1 - k;
+        const x = u*u*p0.x + 2*u*k*p1.x + k*k*p2.x, y = u*u*p0.y + 2*u*k*p1.y + k*k*p2.y, z = u*u*p0.z + 2*u*k*p1.z + k*k*p2.z;
+        _кв2.set(x - р.position.x, y - р.position.y, z - р.position.z); if (_кв2.lengthSq() > 1e-6) р.quaternion.slerp(_кКв.setFromUnitVectors(_вверх, _кв2.normalize()), Math.min(1, dt*4));
+        р.position.set(x, y, z); if (Math.random() < dt*20) киноДым(x, y - 1, z, 0xcbd5e1, 1.2, new THREE.Vector3(0, -2, 0), 1.6);
+        if (k > 0.97 && !с.влетела) { с.влетела = true; киноВспышка('#e9d5ff', 1, 0.5); } },
+      кам(с, t) { const р = с.ракета.position; камера(-10, 2, 17, р.x, Math.max(3, р.y + 2), р.z); } },
+    { длит:6, реплика:['📖 рассказчик', 'Ракета мчится сквозь трещину между мирами… но двигатель глохнет на полпути!'], рт:0.5,
+      нач(с) { с.двор.visible = false; с.пелена.visible = false; с.дыра.visible = false; с.трещина.visible = false; с.тоннель.visible = true; sky.visible = false;
+        scene.background = new THREE.Color(0x1a0b30); scene.fog.color.setHex(0x2a1050); scene.fog.density = 0.012;
+        const р = с.ракета; р.quaternion.identity(); р.rotation.set(-Math.PI/2, 0, 0); р.position.set(0, 1000, 0); с.пламя = 1.3; с.глохнет = 0; },
+      тик(с, t, dt) { const р = с.ракета; for (const д of с.тоннель.children) { д.position.z += dt*60; if (д.position.z > 20) д.position.z -= 26*14; }
+        if (t > 2.5) с.глохнет = Math.min(0.92, (t - 2.5)*0.35); if (t > 3) { if (Math.random() < dt*14) киноДым(р.position.x, р.position.y, р.position.z + 3.6, 0x111111, 0.9, new THREE.Vector3((Math.random() - 0.5)*2, (Math.random() - 0.5)*2, 14), 1.4); if (!с.чих) { с.чих = true; sfx('die'); } }
+        р.position.x = Math.sin(t*3)*0.4*(t > 3 ? 2 : 1); р.rotation.y += dt*(t > 4 ? 3 : 0.5); if (t > 4.2) { р.rotation.x = -Math.PI/2 - (t - 4.2)*0.25; р.position.y = 1000 - (t - 4.2)**2*1.5; }
+        if (t > 5.6 && !с.вниз) { с.вниз = true; киноВспышка('#ffffff', 1, 0.8); } },
+      кам(с, t) { const р = с.ракета.position; камера(3 + Math.sin(t)*0.6, 1003, 15, р.x, р.y, р.z - 8); } },
+    { длит:6.5, реплика:['📖 рассказчик', '…и ты падаешь среди развалин замка. Это Место крушения. В глазах темнеет…'], рт:3.6,
+      нач(с) { с.тоннель.visible = false; с.двор.visible = false; с.замок.visible = true; applyWorldLook('ruins'); startTheme('ruins'); с.пламя = 0; с.ракета.userData.огонь.visible = false; с.ракета.rotation.set(0, 0, 0); с.ракета.position.set(-70, 70, -110); с.удар = false; },
+      тик(с, t, dt) { const р = с.ракета, k = Math.min(1, t/3);
+        if (k < 1) { const u = 1 - k, x = u*u*(-70) + 2*u*k*(-20) + k*k*8, y = u*u*70 + 2*u*k*40 + k*k*1.4, z = u*u*(-110) + 2*u*k*(-80) + k*k*(-56);
+          _кв2.set(x - р.position.x, y - р.position.y, z - р.position.z); if (_кв2.lengthSq() > 1e-6) р.quaternion.setFromUnitVectors(_вверх, _кв2.normalize());   // падает носом вперёд
+          р.position.set(x, y, z); if (Math.random() < dt*30) киноДым(x, y, z, 0x1f2937, 1.4, new THREE.Vector3(0, 1, 0), 2.4); }
+        else if (!с.удар) { с.удар = true; р.position.set(8, 1.2, -56); р.rotation.set(0.2, 0.5, 1.0); кино.тряска = 1.4; sfx('boss'); sfx('super'); киноВспышка('#ffffff', 0.9, 0.9);
+          for (let i = 0; i < 14; i++) киноДым(8 + (Math.random() - 0.5)*6, 1, -56 + (Math.random() - 0.5)*6, 0x8d7a5f, 2.5 + Math.random()*2, new THREE.Vector3((Math.random() - 0.5)*8, 2 + Math.random()*3, (Math.random() - 0.5)*8), 3);
+          puff(8, 1.5, -56, 0xffaa33, 24); shockwave(8, 0.3, -56, 9, 0xffe0a0); }
+        else if (Math.random() < dt*6) киноДым(8, 2.5, -56, 0x374151, 1.2, new THREE.Vector3(0, 2, 0), 3);
+        if (t > 5.3 && !с.темно) { с.темно = true; киноЗатемнить('#000', 1.1); } },
+      кам(с, t) { const р = с.ракета.position; камера(34, 7, -28, промеж(р.x, 4, Math.min(1, t/3)), Math.max(4, промеж(р.y, 6, Math.min(1, t/3))), промеж(р.z, -62, Math.min(1, t/3))); } },
+  ],
+};
+
+/* ═══════════ 🎞 ПОЛЁТ В ДЖУНГЛИ: корабль Морока сбивает нас над океаном ═══════════ */
+const ОСТРОВ = { x:380, z:-200 };
+МУЛЬТИКИ.джунгли = {
+  музыка:'ocean',
+  собрать(с, к) {
+    applyWorldLook('forest');
+    к.высота = (x, z) => { const d = Math.hypot(x - ОСТРОВ.x, z - ОСТРОВ.z); return Math.max(-5, 10*(1 - (d/70)**2) + (d < 70 ? (fbm(x*0.05, z*0.05, 3) - 0.5)*3 : 0)); };
+    buildWater(0, 0x1d6fa5, 0x0b3b52); waterMesh.scale.set(3.6, 1, 3.6);
+    { const wm = waterMesh.material; wm.roughness = 0.45; wm.envMapIntensity = wm.userData.envBase = 0.12; wm.opacity = 0.95; }   // океан на весь экран: без этого он отражает HDR-небо и всё «в молоке»
+    scene.fog.density = 0.0016; renderer.toneMappingExposure *= 0.9;
+    const ог = new THREE.PlaneGeometry(170, 170, 110, 110); ог.rotateX(-Math.PI/2); const pos = ог.attributes.position, цв = new Float32Array(pos.count*3);
+    for (let i = 0; i < pos.count; i++) { const h = к.высота(pos.getX(i) + ОСТРОВ.x, pos.getZ(i) + ОСТРОВ.z); pos.setY(i, h); const п = h < 1.2 ? [0.86, 0.78, 0.55] : [0.13 + Math.random()*0.05, 0.40 + Math.random()*0.08, 0.15]; цв.set(п, i*3); }
+    ог.setAttribute('color', new THREE.BufferAttribute(цв, 3)); ог.computeVertexNormals();
+    const остров = new THREE.Mesh(ог, new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.95 })); остров.position.set(ОСТРОВ.x, 0, ОСТРОВ.z); world.add(остров);
+    for (let i = 0; i < 110; i++) { const a = Math.random()*Math.PI*2, r = Math.sqrt(Math.random())*58, x = ОСТРОВ.x + Math.cos(a)*r, z = ОСТРОВ.z + Math.sin(a)*r; if (i < 70) makePalm(x, z); else makeLeafy(x, z); }
+    for (let i = 0; i < 30; i++) { const a = Math.random()*Math.PI*2, r = Math.random()*55; makeBush(ОСТРОВ.x + Math.cos(a)*r, ОСТРОВ.z + Math.sin(a)*r); }
+    const облМ = new THREE.MeshStandardMaterial({ color:0xe8eef5, roughness:1 });
+    с.облако = (x, y, z, n, R) => { const g = new THREE.Group(); for (let i = 0; i < n; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(R*(0.6 + Math.random()*0.5), 14, 10), облМ); b.position.set((Math.random() - 0.5)*R*2.4, (Math.random() - 0.4)*R*0.6, (Math.random() - 0.5)*R*1.6); b.userData.noShadow = true; g.add(b); } g.position.set(x, y, z); world.add(g); return g; };
+    for (let i = 0; i < 16; i++) с.облако((Math.random() < 0.5 ? -1 : 1)*(34 + Math.random()*60), 38 + Math.random()*24, 160 - i*28, 5, 4 + Math.random()*3);   // облака выше и в стороне — камера в них не влетает
+    с.s = киноКорабль(0, 24, 150); с.S = с.s.mesh.position;
+    с.я = makeHero(COLORS[save.color].hex, save.suit, save.hat); с.я.scale.setScalar(0.55); с.я.position.set(0, 1.85, 0); с.я.rotation.y = Math.PI; с.s.mesh.add(с.я);
+    с.блик = киноБлик(3.5, 27, 151);
+    с.м = makeDropShip(); с.м.scale.setScalar(1.3); с.м.visible = false;
+    с.скор = 14; с.летим = true;
+  },
+  всегда(с, dt, к) {
+    if (с.летим) с.S.z -= с.скор*dt;
+    с.s.rotors.forEach((r, i) => { if (r !== с.сломан) r.rotation.y += dt*28*(i % 2 ? 1 : -1); });
+    if (!с.упал) { _кв.set(с.S.x + 3.6, с.S.y + 3 + Math.sin(к.всего*2)*0.4, с.S.z + 1.5); с.блик.position.lerp(_кв, Math.min(1, dt*4)); }
+    киноБликТик(с.блик, dt, с.S);
+    if (с.лопасти) { const л = с.лопасти; л.g.position.addScaledVector(л.v, dt); л.v.y -= 9.8*dt; л.g.rotation.x += dt*9; л.g.rotation.y += dt*14; }
+  },
+  кадры: [
+    { длит:6, реплика:['📖 рассказчик', 'Четыре мира позади: разбитый замок, шумный лес, раскалённая пустыня и подводное царство.'], рт:0.5,
+      кам(с, t) { камераОт(с.S, 17 - t*0.8, 2.5, 5, с.S, 0, 1.5, -3); } },
+    { длит:5, реплика:['📖 рассказчик', 'Корабль летит над океаном и поёт винтами, как довольный шмель.'], рт:0.3,
+      кам(с, t) { камераОт(с.S, -2, 7, 15, с.S, 0, 0, -26); } },
+    { длит:3.5, реплика:['💙 Блик', 'Красота! Ни одного кошмара до самого горизонта!'], рт:0.3,
+      кам(с, t) { камераОт(с.S, -2.6, 3.2, -6.5, с.S, 0.8, 2.2, 0); } },
+    { длит:5, реплика:['📖 рассказчик', 'И тут из облака вынырнул корабль Морока!'], рт:1.6,
+      нач(с) { с.засада = с.облако(с.S.x - 20, с.S.y + 4, с.S.z - 115, 8, 9); с.м.visible = true; с.м.rotation.y = Math.PI; с.м.position.set(с.S.x - 20, с.S.y + 4, с.S.z - 115); startTheme('fight'); },
+      тик(с, t, dt) { const м = с.м; if (t > 0.9) { if (!с.гул) { с.гул = true; sfx('boss'); } м.position.z += 40*dt; м.position.x += (с.S.x - 9 - м.position.x)*dt*0.8; м.position.y += (с.S.y + 2 - м.position.y)*dt; м.rotation.z = Math.sin(t*2)*0.15; } },
+      итог(с) { с.м.visible = true; },
+      кам(с, t) { камераОт(с.S, 2.5, 4.5, 15, с.S, 0, 2, -32); } },
+    { длит:3.2, реплика:['👑 Морок', 'Хо-хо! Далеко собрался, человечек?'], рт:0.3,
+      нач(с) { const м = с.м; м.visible = true; м.rotation.set(0, 0, 0); м.position.set(с.S.x - 10, с.S.y + 1.5, с.S.z + 14); if (с.засада) с.засада.visible = false; },
+      тик(с, t, dt) { const м = с.м; м.position.z = с.S.z + 14 - t*2; м.position.x += (с.S.x - 9 - м.position.x)*dt*2; м.rotation.z = Math.sin(t*1.6)*0.08; },
+      кам(с, t) { камераОт(с.S, -27, 4, 14, с.S, -5, 1, 4); } },
+    { длит:2.8,
+      нач(с) { const м = с.м; м.position.set(с.S.x - 6, с.S.y + 1.6, с.S.z + 13); м.rotation.set(0, 0, 0); с.пуля = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 1.6, 4, 8), яркий(0xff3b3b, 3)); с.пуля.rotation.x = Math.PI/2; world.add(с.пуля); с.пуляT = 0; sfx('hurt'); },
+      тик(с, t, dt) { const м = с.м; м.position.z = с.S.z + 13; const цель = с.s.rotors[2].getWorldPosition(_кв2), от = _кв.set(м.position.x, м.position.y + 0.5, м.position.z - 4.2);
+        if (с.пуля) { const k = Math.min(1, t/0.55); с.пуля.position.lerpVectors(от, цель, k); с.пуля.lookAt(цель); с.пуля.rotateX(Math.PI/2);
+          if (k >= 1) { world.remove(с.пуля); с.пуля = null; const р = с.s.rotors[2]; с.сломан = р; с.s.mesh.remove(р); р.position.copy(цель); world.add(р);
+            с.лопасти = { g:р, v:new THREE.Vector3(-6, 7, 4) }; puff(цель.x, цель.y, цель.z, 0xffaa33, 26); shockwave(цель.x, цель.y, цель.z, 3, 0xffd27a); кино.тряска = 0.8; sfx('hit'); sfx('die'); } }
+        if (с.сломан && Math.random() < dt*12) { const мт = с.s.mesh.localToWorld(_кв.set(-3, 2, 3)); киноДым(мт.x, мт.y, мт.z, 0x6b7280, 0.7, new THREE.Vector3((Math.random() - 0.5)*3, 1 + Math.random()*2, 6), 1.4); } },
+      итог(с) { if (с.пуля) { world.remove(с.пуля); с.пуля = null; } if (!с.сломан) { const р = с.s.rotors[2]; с.сломан = р; с.s.mesh.remove(р); world.add(р); р.position.copy(с.S); с.лопасти = { g:р, v:new THREE.Vector3(-6, 7, 4) }; } },
+      кам(с, t) { камераОт(с.S, -9, 5, 9, с.S, -2.5, 2, 0); } },
+    { длит:3.6, реплика:['💙 Блик', 'Держись!'], рт:0.2,
+      тик(с, t, dt) { с.s.mesh.rotation.z = Math.min(0.7, t*0.35); с.s.mesh.rotation.y += dt*2.2; с.S.y -= dt*(4 + t*4); с.скор = 10;
+        const м = с.м; м.position.y += dt*(6 + t*6); м.position.z -= dt*30; м.rotation.x = -0.3;
+        if (Math.random() < dt*14) { const мт = с.s.mesh.localToWorld(_кв.set(-3, 2, 3)); киноДым(мт.x, мт.y, мт.z, 0x6b7280, 0.8, new THREE.Vector3((Math.random() - 0.5)*3, 2 + Math.random()*2, 4), 1.5); } },
+      кам(с, t) { камераОт(с.S, 13, 11, 13, с.S, 0, 0, 0); } },
+    { длит:6, реплика:['📖 рассказчик', '…и мы рухнули вниз, в зелёную чащу, которой нет ни на одной карте.'], рт:0.4,
+      нач(с, к) { с.летим = false; с.м.visible = false; if (с.лопасти) с.лопасти.g.visible = false; с.S.set(ОСТРОВ.x - 50, 80, ОСТРОВ.z + 52); с.удар = false; startTheme('jungle'); },
+      тик(с, t, dt, к) { const k = Math.min(1, t/3.4), цель = _кв2.set(ОСТРОВ.x + 4, к.высота(ОСТРОВ.x + 4, ОСТРОВ.z - 2) + 6, ОСТРОВ.z - 2);
+        if (k < 1) { с.S.set(промеж(ОСТРОВ.x - 50, цель.x, k), промеж(80, цель.y, k*k), промеж(ОСТРОВ.z + 52, цель.z, k)); с.s.mesh.rotation.y += dt*3; с.s.mesh.rotation.z = 0.7;
+          if (Math.random() < dt*16) киноДым(с.S.x, с.S.y + 1.5, с.S.z, 0x4b5563, 1.1, new THREE.Vector3((Math.random() - 0.5)*3, 2, (Math.random() - 0.5)*3), 2); }
+        else if (!с.удар) { с.удар = true; с.упал = true; кино.тряска = 1.2; sfx('boss'); киноВспышка('#ffffff', 0.85, 0.9); с.блик.position.set(с.S.x + 3, с.S.y + 2, с.S.z + 2);
+          for (let i = 0; i < 16; i++) киноДым(цель.x + (Math.random() - 0.5)*8, цель.y + Math.random()*3, цель.z + (Math.random() - 0.5)*8, i % 2 ? 0x3f9440 : 0x7a6a4a, 2 + Math.random()*2, new THREE.Vector3((Math.random() - 0.5)*7, 2 + Math.random()*3, (Math.random() - 0.5)*7), 3);
+          puff(цель.x, цель.y, цель.z, 0x86efac, 30); shockwave(цель.x, цель.y - 3, цель.z, 10, 0xbbf7d0); }
+        if (t > 5 && !с.темно) { с.темно = true; киноЗатемнить('#ffffff', 0.9); } },
+      кам(с, t, к) { камера(ОСТРОВ.x + 36, к.высота(ОСТРОВ.x + 36, ОСТРОВ.z + 40) + 3, ОСТРОВ.z + 40, с.S.x, Math.max(с.S.y, 8), с.S.z); } },
+  ],
+};
+
+/* ═══════════ 🎞 ПОСЛЕ КОСМОСА: Морок забирает символы (речь — слова Марка) ═══════════ */
+const ЛОГОВО_ПЛАНЕТА = new THREE.Vector3(-150, 70, -430);
+МУЛЬТИКИ.символы = {
+  музыка:'space',
+  собрать(с) {
+    applyWorldLook('space');
+    const N = МОБИЛА ? 1400 : 2600, g = new THREE.BufferGeometry(), p = new Float32Array(N*3);
+    for (let i = 0; i < N; i++) { const a = Math.random()*Math.PI*2, b = Math.acos(Math.random()*2 - 1), r = 380; p.set([Math.sin(b)*Math.cos(a)*r, Math.cos(b)*r, Math.sin(b)*Math.sin(a)*r], i*3); }
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3)); world.add(new THREE.Points(g, new THREE.PointsMaterial({ color:0xffffff, size:1.6, sizeAttenuation:false, fog:false })));
+    const пт = document.createElement('canvas'); пт.width = 256; пт.height = 128; const x = пт.getContext('2d');
+    for (let i = 0; i < 128; i++) { x.fillStyle = `hsl(${200 + Math.sin(i*0.21)*30},${50 + Math.sin(i*0.5)*20}%,${45 + Math.sin(i*0.13)*15}%)`; x.fillRect(0, i, 256, 1); }
+    const пТ = new THREE.CanvasTexture(пт); пТ.colorSpace = THREE.SRGBColorSpace;
+    const планета = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 32), new THREE.MeshStandardMaterial({ map:пТ, roughness:0.8, fog:false })); планета.position.set(170, 20, -360); world.add(планета);
+    const кольцо = new THREE.Mesh(new THREE.RingGeometry(90, 125, 64), new THREE.MeshBasicMaterial({ color:0xc7d2fe, transparent:true, opacity:0.35, side:THREE.DoubleSide, fog:false })); кольцо.position.copy(планета.position); кольцо.rotation.set(1.25, 0.3, 0); world.add(кольцо);
+    const логово = new THREE.Mesh(new THREE.SphereGeometry(26, 32, 24), new THREE.MeshStandardMaterial({ color:0x2a1040, emissive:0x3b0764, emissiveIntensity:0.5, roughness:0.9, fog:false })); логово.position.copy(ЛОГОВО_ПЛАНЕТА); world.add(логово);
+    const глаз = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 12), яркий(0xff2b2b, 2.4)); глаз.position.copy(ЛОГОВО_ПЛАНЕТА).add(new THREE.Vector3(10, 4, 22)); world.add(глаз);
+    const аг = new THREE.IcosahedronGeometry(17, 4), ап = аг.attributes.position;
+    for (let i = 0; i < ап.count; i++) { const vx = ап.getX(i), vy = ап.getY(i), vz = ап.getZ(i), n = 1 + (hash3(Math.round(vx*0.4), Math.round(vy*0.4), Math.round(vz*0.4), 7) - 0.5)*0.22;
+      ап.setXYZ(i, vx*n, vy > 0 ? (n - 1)*0.9 : vy*0.45*n, vz*n); }   // верх почти ровный — на нём стоят
+    аг.computeVertexNormals(); const астероид = new THREE.Mesh(аг, matRock(4)); world.add(астероид);
+    с.камни = []; for (let i = 0; i < 9; i++) { const к = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8 + Math.random()*2.2, 0), matRock(1)); const a = i/9*Math.PI*2; к.position.set(Math.cos(a)*(26 + Math.random()*10), -2 + Math.random()*10, Math.sin(a)*(26 + Math.random()*10) - 6); world.add(к); с.камни.push(к); }
+    с.корабль = киноКорабль(-9, 0, 3); с.корабль.mesh.rotation.y = 0.5;
+    с.я = киноЧеловек(COLORS[save.color].hex, save.suit, save.hat, 0, 6, Math.PI); с.я.position.y = 0;
+    с.блик = киноБлик(2.6, 3.2, 7.6);
+    с.м = makeDropShip(); с.м.scale.setScalar(2.4); с.м.rotation.y = Math.PI; с.м.position.set(60, 40, -260);
+    const пушка = new THREE.Group(); пушка.position.set(0, -0.9, -3.4); с.м.add(пушка);
+    const ствол = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.5, 2.4, 16), metalM(0x1c1030, 0.3)); ствол.rotation.x = Math.PI/2; ствол.position.z = -1; пушка.add(ствол);
+    const дуло = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.1, 8, 20), яркий(0xc084fc, 2.4)); дуло.position.z = -2.2; пушка.add(дуло);
+    с.заряд = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), яркий(0xe9d5ff, 3)); с.заряд.position.z = -2.3; с.заряд.scale.setScalar(0.001); пушка.add(с.заряд);
+    с.пушка = пушка;
+    с.морок = киноМорок(0, 0, 0); с.морок.visible = false;
+    с.луч = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1, 16, 1, true), new THREE.MeshBasicMaterial({ color:new THREE.Color(0xc084fc).multiplyScalar(2.5), transparent:true, opacity:0.7, fog:false, side:THREE.DoubleSide })); с.луч.visible = false; world.add(с.луч);
+    const виды = WORLDS.filter(w => w.symbol && w.symbol.need !== undefined && w.id !== 'lair' && w.symbol.id !== 'none').map(w => w.symbol.id);
+    с.символы = []; for (let i = 0; i < 22; i++) { const м = makeSymbolMesh(виды[i % виды.length]); м.scale.setScalar(1.5); м.visible = false; world.add(м); с.символы.push({ м, t0:i*0.16 }); }
+    с.висит = 0;
+  },
+  всегда(с, dt, к) {
+    с.камни.forEach((к2, i) => { к2.rotation.x += dt*0.2*(i % 3 + 1); к2.rotation.y += dt*0.15; });
+    с.морок.position.copy(с.м.position).add(_кв.set(0, 4.3 + Math.sin(к.всего*1.1)*0.25, 0)); с.морок.rotation.y = с.м.rotation.y - Math.PI;
+    if (с.морок.visible) киноМорокТик(с.морок, к.всего, 0.35);
+    if (!с.прячется) _кв.set(2.6, 3.2 + Math.sin(к.всего*1.8)*0.25, 7.6); else _кв.set(-0.9, 1.6 + Math.sin(к.всего*2.4)*0.1, 7.9);
+    с.блик.position.lerp(_кв, Math.min(1, dt*3)); киноБликТик(с.блик, dt, с.прячется ? с.морок.position : с.я.position);
+    с.я.position.y = Math.max(0, с.висит);
+  },
+  кадры: [
+    { длит:6, реплика:['📖 рассказчик', 'Мы прошли все миры. Бак корабля полон символов — осталось только найти Морока.'], рт:0.6,
+      кам(с, t) { const a = 0.7 + t*0.05; камера(Math.sin(a)*34, 12, Math.cos(a)*34, -2, 1, 0); } },
+    { длит:5.5, реплика:['💙 Блик', 'Ой… Слышишь гул? Это его корабль!'], рт:2.2,
+      нач(с) { sfx('boss'); startTheme('lair'); },
+      тик(с, t) { const k = сглаж(t/4.5); с.м.position.set(промеж(60, 0, k), промеж(40, 10, k), промеж(-260, -24, k)); с.м.rotation.z = (1 - k)*0.3; if (t > 2.2) с.прячется = true; киноЛицом(с.я, 0, -24); },
+      итог(с) { с.м.position.set(0, 10, -24); с.м.rotation.z = 0; с.прячется = true; },
+      кам(с, t) { камера(2.5, 3.4, 15, с.м.position.x*0.6, промеж(7, 8, t/5), с.м.position.z); } },
+    { длит:3, реплика:['👑 Морок', 'Хо-хо, какой жалкий и растерянный человечек.'], рт:0.7,
+      нач(с) { с.морок.visible = true; puff(0, 15, -24, 0x8b5cf6, 20); sfx('shade'); с.м.position.set(0, 10, -24); },
+      кам(с, t) { камера(3, 12.5, -9 - t*0.3, 0, 18.6, -24); } },
+    { длит:3, реплика:['👑 Морок', 'Может быть, Блик подскажет тебе, что делать?'], рт:0.2,
+      кам(с, t) { камера(-3.8, 2.8, 12.5, 0.4, 2.1, 6.5); } },
+    { длит:3, реплика:['👑 Морок', 'Ну да, тот призрак, которого ты нечаянно нашёл в руинах. Вместе с ним ты оказался здесь.'], рт:0.2,
+      кам(с, t) { камера(14 - t*0.4, 16.5, -13, 0, 18.8, -24); } },
+    { длит:3, реплика:['👑 Морок', 'Но мне нужны были кто-то наивные. Те, кто привели меня ко всем символам.'], рт:0.2,
+      кам(с, t) { камера(0, 15 + t*0.15, -6 - t*0.6, 0, 19.2, -24); } },
+    { длит:3, реплика:['👑 Морок', 'Только они могут запустить мой кошмаратор.'], рт:0.2,
+      кам(с, t) { камера(-3.5, 22, -29, 0, 1.5, 6); } },
+    { длит:3, реплика:['👑 Морок', 'Вы пытались меня остановить, а оказалось наоборот. Помогли мне!'], рт:0.2,
+      кам(с, t) { камера(-6.5, 16, -10, 0, 19, -24); } },
+    { длит:6.5,
+      нач(с) { sfx('super'); с.залп = 0; },
+      тик(с, t, dt) { const дуло = с.пушка.localToWorld(_кв.set(0, 0, -2.3)), грудь = _кв2.set(с.я.position.x, с.я.position.y + 1.4, с.я.position.z);
+        if (t < 1.3) { с.заряд.scale.setScalar(Math.max(0.001, t/1.3*1.4)); return; }
+        с.заряд.scale.setScalar(1.2 + Math.sin(t*30)*0.2);
+        if (!с.луч.visible) { с.луч.visible = true; sfx('portal'); кино.тряска = 0.5; }
+        const д = дуло.distanceTo(грудь); с.луч.position.lerpVectors(дуло, грудь, 0.5); с.луч.quaternion.setFromUnitVectors(_вверх, _кв.subVectors(грудь, дуло).normalize()); с.луч.scale.set(1 + Math.sin(t*40)*0.15, д, 1 + Math.sin(t*40)*0.15);
+        с.висит = Math.min(1.8, (t - 1.3)*1.5); киноРукиВверх(с.я, Math.min(1, (t - 1.3)*1.2)); с.я.rotation.z = Math.sin(t*12)*0.05;
+        const дуло2 = с.пушка.localToWorld(new THREE.Vector3(0, 0, -2.3));
+        for (const сим of с.символы) { const k = (t - 1.6 - сим.t0)/1.1; if (k < 0) continue; if (k >= 1) { if (сим.м.visible) { сим.м.visible = false; if (Math.random() < 0.5) sfx('coin'); } continue; }
+          сим.м.visible = true; const e = сглаж(k); сим.м.position.lerpVectors(грудь, дуло2, e); сим.м.position.y += Math.sin(k*Math.PI)*1.5; сим.м.rotation.y += dt*8; сим.м.scale.setScalar(1.5*(1 - e*0.7)); }
+        if (t > 6.2 && с.луч.visible) { с.луч.visible = false; с.заряд.scale.setScalar(0.001); } },
+      итог(с) { с.луч.visible = false; с.заряд.scale.setScalar(0.001); с.символы.forEach(s => s.м.visible = false); },
+      кам(с, t) { камера(19, 6, -1, 0, 5 + Math.min(1, t/2)*2, -7); } },
+    { длит:3, реплика:['👑 Морок', 'Во всех мирах отныне царит хаос. Все кошмары и ужасы воплотятся.'], рт:0.4,
+      нач(с) { с.луч.visible = false; },
+      тик(с, t, dt) { с.висит = Math.max(0, с.висит - dt*4); киноРукиВверх(с.я, Math.max(0, 1 - t*2)); с.я.rotation.z = 0; if (с.висит <= 0 && !с.бух) { с.бух = true; puff(0, 0.3, 6, 0x9ca3af, 12); sfx('hit'); } },
+      итог(с) { с.висит = 0; },
+      кам(с, t) { камера(4, 15, -9.5, 0, 19.4, -24); } },
+    { длит:3, реплика:['👑 Морок', 'Хо-хо, это будет так весело. И я расскажу всем-всем-всем королевствам о том, что вы наделали.'], рт:0.2,
+      кам(с, t) { камера(-5 + t*0.3, 18, -12, 0, 19.8, -24); } },
+    { длит:5.5, реплика:['👑 Морок', 'Ха-ха-ха-ха! Хо-хо-хо-хо!', '_хохот'], рт:0.2,
+      тик(с, t, dt) { const м = с.м; if (t < 1.2) { м.rotation.y = Math.PI - сглаж(t/1.2)*Math.PI*0.75; return; }
+        const k = ((t - 1.2)/4)**1.6; м.position.lerpVectors(_кв.set(0, 10, -24), ЛОГОВО_ПЛАНЕТА, Math.min(1, k)); м.lookAt(_кв2.copy(ЛОГОВО_ПЛАНЕТА).multiplyScalar(2)); м.rotateY(Math.PI); },
+      итог(с) { с.м.visible = false; с.морок.visible = false; },
+      кам(с, t) { камера(9, 7, 21, с.м.position.x*0.5, Math.max(6, с.м.position.y*0.6), с.м.position.z*0.6); } },
+    { длит:4, реплика:['💙 Блик', 'Он забрал все символы… Но корабль остался. И мы остались. Значит, ещё не всё кончено — летим за ним в логово!'], рт:0.6,
+      нач(с) { с.м.visible = false; с.морок.visible = false; с.прячется = false; startTheme('space'); },
+      тик(с, t) { киноЛицом(с.я, с.блик.position.x, с.блик.position.z); },
+      кам(с, t) { камера(-2.6, 3.6, 14, 1, 2.6, 6.6); } },
+    { длит:1.2, нач() { киноЗатемнить('#000', 1); }, кам(с, t) { камера(-2.6, 3.6 + t*0.5, 14 + t, 1, 2.6, 6.6); } },
+  ],
+};
 
 /* =========================================================================
    СТАРТ
@@ -8862,7 +9441,7 @@ function loop(now) {
     updateFx(dt);
     updateSun();
     updateCamera(dt);
-  }
+  } else if (state === 'кино') { обновитьКино(dt); updateFx(dt); }   // 🎬 мультик
   renderFrame();
 }
 requestAnimationFrame(loop);
@@ -8920,6 +9499,14 @@ window.__мкИгра = {
 };
 
 window.__dbg = {
+  мультик(id){ window.__киноКонец = null; запуститьМультик(id, () => { window.__киноКонец = id; }); return id; },
+  get кино(){ return кино ? { id:кино.id, кадр:кино.i, кадров:кино.Ф.кадры.length, t:+кино.t.toFixed(2), всего:+кино.всего.toFixed(1),
+    текст:document.getElementById('киноТекст').textContent, кто:document.getElementById('киноКто').textContent } : null; },
+  киноПрыг(i){ return киноПрыг(i); },
+  киноКонец(){ кончитьМультик(); },
+  киноОтладка(){ const с = кино && кино.ск; return с ? { пелена: с.пелена ? [с.пелена.visible, +с.пелена.material.opacity.toFixed(2), с.пелена.parent === world, !!с.пелена.parent] : null, гроза:с.гроза, солнце:+sun.intensity.toFixed(2), hemi:+hemi.intensity.toFixed(2), expo:+renderer.toneMappingExposure.toFixed(2), детей:world.children.length } : null; },
+  начать(i){ startGame(i); return WORLDS[worldIdx].id; },
+  вПортал(){ enterPortal(); },
   get wardrobePreview(){let meshes=0;advWardrobeHero?.traverse(o=>{if(o.isMesh)meshes++});return {active:!$('wardrobe').classList.contains('hidden'),suit:save.suit,hat:save.hat,color:save.color,meshes,legs:advWardrobeHero?.userData.legs.length||0,arms:advWardrobeHero?.userData.arms.length||0};},
   get state(){ return state; },
   get world(){ return WORLDS[worldIdx].id; },
@@ -9616,6 +10203,7 @@ window.__dbg = {
     { id:'ghostlife', имя:'Жизнь призрака', em:'👻', вместе:false },
     { id:'dustmaze',  имя:'Пыльный мститель', em:'🌫', вместе:false },
     { id:'phantom',   имя:'Поместье',     em:'👻', вместе:false },
+    { id:'zasosalo',  имя:'В глубине прибора', em:'🌀', вместе:false },
     { id:'emoplanet', имя:'Эмоциональная планета', em:'🪐', вместе:false },
     { id:'technobunt',имя:'Технобунт',    em:'⏻', вместе:false },
     { id:'matshtorm', имя:'Матшторм',     em:'🔢', вместе:false },
