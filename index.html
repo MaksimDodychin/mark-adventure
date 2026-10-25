@@ -285,7 +285,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "9ec7eeb795";</script>
+  <script>window.__APP_VER = "34147586d4";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -442,6 +442,7 @@
   <button class="btn" data-kino="пролог">🏡 Морок врывается</button>
   <button class="btn" data-kino="джунгли">🌴 Полёт в джунгли</button>
   <button class="btn" data-kino="символы">🌌 Морок забирает символы</button>
+  <button class="btn" data-kino="эпилог">🏆 Эпилог: Кошмаратор рушится</button>
   <button class="btn small" id="киноНазад">← НАЗАД</button>
 </div>
 
@@ -4298,13 +4299,35 @@ function buildPyramid() {
   return PYR;
 }
 
-/* 🕳 ЗЫБУЧИЕ ПЕСКИ: попал — тонешь и медленно ползёшь, пока не выпрыгнешь */
+/* 🕳 ЗЫБУЧИЕ ПЕСКИ (Марк 24–25.10: «реалистичные, как он тебя затягивает» — как пески Лени в «Эмоциональной планете»).
+   Мокрый тёмный песок закручивается воронкой. Попал — тянет к середине и засасывает всё глубже: ноги вязнут,
+   стоишь — тонешь быстро, бредёшь — медленнее. Видно, как проваливаешься: по колено, по пояс, по плечи — и машешь
+   руками. Спасают прыжки (каждый вырывает чуть-чуть, но из глубины прыгаешь ниже) и бег к краю.
+   Затянуло с головой — минус сердечко, песок выплёвывает тебя на край. */
 const quicksand = [];
+let воронкаТ = null;
+function воронкаТекстура() {
+  if (воронкаТ) return воронкаТ;
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(128, 128, 4, 128, 128, 128);
+  gr.addColorStop(0, '#4a3218'); gr.addColorStop(0.5, '#7d5d33'); gr.addColorStop(0.85, '#b08a52'); gr.addColorStop(1, 'rgba(201,166,110,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  g.lineWidth = 6;
+  for (let k = 0; k < 5; k++) { g.strokeStyle = `rgba(50,32,14,${0.4 - k*0.05})`; g.beginPath();      // спирали воронки
+    for (let a = 0; a < 9; a += 0.05) { const r = 5 + a*13; if (r > 120) break; const x = 128 + Math.cos(a + k*1.257)*r, y = 128 + Math.sin(a + k*1.257)*r; if (a === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+    g.stroke(); }
+  for (let i = 0; i < 1200; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(255,240,200,.16)' : 'rgba(40,25,10,.18)'; g.fillRect(Math.random()*256, Math.random()*256, 2, 2); }
+  воронкаТ = new THREE.CanvasTexture(c); воронкаТ.colorSpace = THREE.SRGBColorSpace; воронкаТ.center.set(0.5, 0.5);
+  return воронкаТ;
+}
 function addQuicksand(x, z, r) {
-  const m = new THREE.Mesh(new THREE.CircleGeometry(r, 20),
-    new THREE.MeshStandardMaterial({ color:0xb08a52, roughness:1 }));
-  m.rotation.x = -Math.PI/2;
-  m.position.set(x, heightAt(x, z) + 0.06, z);
+  const гео = new THREE.RingGeometry(0.001, r, 40, 8); гео.rotateX(-Math.PI/2);              // кольца внутри — чтобы гнуться по бархану
+  const h0 = heightAt(x, z), п = гео.attributes.position;                    // ложится по бархану, а не плоским блином
+  for (let i = 0; i < п.count; i++) п.setY(i, heightAt(x + п.getX(i), z + п.getZ(i)) - h0);
+  гео.computeVertexNormals();
+  const m = new THREE.Mesh(гео, new THREE.MeshStandardMaterial({ map:воронкаТекстура(), transparent:true, roughness:0.95, depthWrite:false }));
+  m.renderOrder = 1;
+  m.position.set(x, h0 + 0.06, z);
   world.add(m);
   const rec = { x, z, r, mesh:m, t:0 };
   quicksand.push(rec);
@@ -4315,24 +4338,43 @@ function inQuicksand(a) {
   return null;
 }
 function updateQuicksand(dt) {
+  if (воронкаТ && quicksand.length) воронкаТ.rotation += dt*0.7;           // 🌀 песок медленно закручивается
   for (const q of quicksand) {
     q.t += dt;
-    q.mesh.position.y = heightAt(q.x, q.z) + 0.06 + Math.sin(q.t*1.6 + q.x)*0.05;
+    q.mesh.position.y = heightAt(q.x, q.z) + 0.06 + Math.sin(q.t*1.6 + q.x)*0.03;
+    if (Math.random() < dt*0.6) dustPuff(q.x + (Math.random()-0.5)*q.r, heightAt(q.x, q.z) + 0.1, q.z + (Math.random()-0.5)*q.r, 1, 0x7d5d33, 0.25);   // пузырится
   }
-  if (!player) return;
-  const q = inQuicksand(player);
-  if (q && player.y <= (player.floorY || 0) + 0.4) {
-    player.sink = Math.min(1.6, (player.sink || 0) + dt*0.6);
-    player.y -= player.sink * dt;                           // тонешь
-    if (!player.sinkMsgT || time - player.sinkMsgT > 4) {
-      player.sinkMsgT = time;
-      bigMsg('🕳 ЗЫБУЧИЙ ПЕСОК! Прыгай!', 1.4, '#fca5a5');
+  const p = player;
+  if (!p || p.second) return;
+  const q = inQuicksand(p), наЗемле = p.y <= (p.floorY ?? 0) + 0.45;
+  if (q && наЗемле && state === 'play') {
+    const s = p.sink || 0;
+    if (p.qsPrev) {                                          // 🐌 ноги вязнут: чем глубже, тем короче шаг
+      p.x = p.qsPrev.x + (p.x - p.qsPrev.x)*(1 - 0.72*s); p.z = p.qsPrev.z + (p.z - p.qsPrev.z)*(1 - 0.72*s); }
+    const идёт = p.qsPrev && Math.hypot(p.x - p.qsPrev.x, p.z - p.qsPrev.z) > dt*0.9;
+    const d = Math.hypot(p.x - q.x, p.z - q.z) || 1, тяга = (0.8 + s*1.6)*dt;   // 🌀 тянет к середине воронки
+    p.x += (q.x - p.x)/d*Math.min(d, тяга); p.z += (q.z - p.z)/d*Math.min(d, тяга);
+    p.sink = Math.min(1, s + dt*(идёт ? 0.15 : 0.32));
+    if (!p.sinkMsgT || time - p.sinkMsgT > 5) {
+      p.sinkMsgT = time; bigMsg('🕳 ЗЫБУЧИЙ ПЕСОК ЗАТЯГИВАЕТ!\nпрыгай и беги к краю!', 1.8, '#fca5a5');
+      if (!p.qsСказал) { p.qsСказал = true; say('Блик', 'Ой! Зыбучий песок! Не стой на месте — прыгай и беги к краю!', 3.6); }
     }
-    if (player.sink > 1.4) { hurtPlayer(1); player.sink = 0;
-      const h = heightAt(player.x, player.z);
-      player.x += (Math.random()-0.5)*8; player.z += (Math.random()-0.5)*8;
-      player.y = heightAt(player.x, player.z) + 0.5; }
-  } else if (player.sink) player.sink = Math.max(0, player.sink - dt*1.5);
+    if (Math.random() < dt*7) dustPuff(p.x, p.floorY ?? heightAt(p.x, p.z), p.z, 1, 0x7d5d33, 0.55);
+    if (p.sink > 0.55) shake(0.05, 0.1);
+    if (p.sink >= 1) {                                       // 😵 затянуло с головой
+      p.sink = 0; hurtPlayer(1); bigMsg('🕳 ЗАСОСАЛО!', 1.6, '#fca5a5');
+      const a = Math.atan2(p.z - q.z, p.x - q.x);
+      p.x = q.x + Math.cos(a)*(q.r + 2.2); p.z = q.z + Math.sin(a)*(q.r + 2.2);
+      p.y = heightAt(p.x, p.z) + 0.5; p.vy = 5;
+      dustPuff(p.x, p.y, p.z, 14, 0x7d5d33, 1.6);
+    }
+  } else if (p.sink) p.sink = Math.max(0, p.sink - dt*(наЗемле ? 0.9 : 1.6));
+  if (p.mesh && (p.sink || 0) > 0.001) {                    // 👀 видно, как проваливаешься; руки машут над головой (иначе позу не трогаем — корабль, сани)
+    p.mesh.position.set(p.x, p.y + (p.lift || 0) - (p.sink || 0)*1.4, p.z);
+    const u = p.mesh.userData;
+    if (u.arms && (p.sink || 0) > 0.25) { const в = Math.sin(time*12)*0.5; u.arms[0].rotation.set(-2.7 + в, 0, 0.3); u.arms[1].rotation.set(-2.7 - в, 0, -0.3); }
+  }
+  p.qsPrev = { x:p.x, z:p.z };
 }
 
 /* ☁️ ПЛАТФОРМЫ-ОБЛАКА: по ним прыгаешь, на них же переводишь дух */
@@ -5160,11 +5202,12 @@ function updateLair(dt) {
   lair.речь = true;
   state = 'play';
   bigMsg('👑 МОРОК ПРИНИМАЕТ ГОСТЕЙ', 3.0, '#c4b5fd');
-  say('👑 Морок', 'А, вот и последний гость. Проходи, не стесняйся — как раз к началу.', 5.5);
-  setTimeout(() => say('👑 Морок',
-    'Сейчас я запущу мой КОШМАРАТОР на полную мощность — и всем вашим мирам придёт конец!', 7.5), 5800);
-  setTimeout(() => { if (state === 'play') blik('Он не шутит! Останови его, а я подстрахую!', 5); }, 13500);
-  setTimeout(() => { if (state === 'play') startFinal(1, true); }, 18000);
+  // 👑 слова Марка (25.10) — Морок встречает тебя с Бликом
+  say('👑 Морок', 'Итак, ты с Бликом добрался до моего логова. Но для чего? Чтобы спасти друзей? Чтобы остановить меня?', 8);
+  setTimeout(() => say('👑 Морок', 'Слишком поздно. Все королевства уже погрузились в темноту. Они превратились в миры хаоса.', 7.5), 8600);
+  setTimeout(() => say('👑 Морок', 'И правлю ими я — КОРОЛЬ КОШМАРОВ!', 4.5), 16600);
+  setTimeout(() => { if (state === 'play') blik('Не слушай его! Останови его, а я подстрахую!', 4.5); }, 21500);
+  setTimeout(() => { if (state === 'play') startFinal(1, true); }, 25500);
 }
 
 /* 🕳 ЯМА К БОССУ: открывается после победы над приспешником */
@@ -5881,8 +5924,9 @@ function killBoss() {
       setTimeout(() => { say('👑 Морок', 'Я ещё жив. Ты меня не победил. Советую сдаваться.', 4.5); }, 4200);
       setTimeout(() => startFinal(2), 6600);               // он поднимается — настоящий финал
     } else {
-      say('👑 Морок', 'Пусть… но КОШМАРАТОР уже запущен. Его вам не остановить!', 5);
-      setTimeout(() => { if (state === 'play') startKoshmarator(); }, 3200);
+      say('👑 Морок', 'Ты не сможешь контролировать хаос вечно! Кошмары всегда возвратятся!', 6);   // 👑 слова Марка (24–25.10)
+      setTimeout(() => { if (state === 'play') blik('Кошмаратор всё равно запустился! Внутрь — выключим его!', 4.5); }, 6200);
+      setTimeout(() => { if (state === 'play') startKoshmarator(); }, 10500);
     }
   }
   for (let i=0;i<5;i++) setTimeout(() => puff(boss.x + (Math.random()-0.5)*4, boss.y + 2 + Math.random()*4,
@@ -7238,7 +7282,8 @@ function pressJump() {
   }
   if (player.jumps < 2) {                                      // первый и второй прыжок
     const лёгкость = WORLDS[worldIdx].id === 'space' ? 1.35 : 1;   // 🪐 в космосе взлетаешь выше
-    player.vy = CFG.jumpV * лёгкость * (player.jumps === 0 ? 1 : 0.92);
+    player.vy = CFG.jumpV * лёгкость * (player.jumps === 0 ? 1 : 0.92) * (1 - (player.sink || 0)*0.5);   // 🕳 из глубины песка прыгаешь ниже
+    if (player.sink) player.sink = Math.max(0, player.sink - 0.3);                                   // …но каждый прыжок вырывает
     player.jumps++;
     player.glide = 0;
     if (player.jumps === 2) { bigMsg('⤴⤴ ДВОЙНОЙ ПРЫЖОК', 0.7, '#bae6fd'); puff(player.x, player.y+0.4, player.z, 0x93c5fd); }
@@ -8200,7 +8245,7 @@ function winAll() {
   if (!winAll._показан) {
     winAll._показан = true;
     state = 'pause';
-    showChapter('epilogue', () => winAll());
+    запуститьМультик('эпилог', () => winAll());          // 🎬 эпилог мультиком (Марк 25.10)
     return;
   }
   state = 'win';
@@ -9253,6 +9298,96 @@ const ЛОГОВО_ПЛАНЕТА = new THREE.Vector3(-150, 70, -430);
   ],
 };
 
+/* ═══════════ 🎞 ЭПИЛОГ: «Кошмаратор рушится» (Марк 24–25.10) ═══════════
+   «Начинается обвал кошмаратора, и появляются твои друзья, и начинаются обнимашки и хэппи-энд. А потом темнеет
+   экран, появляется Морок и говорит: „Приятных тебе кошмаров, Блик“ — и начинает смеяться, и потом всё исчезает.» */
+function киноСердце() {                                 // 💗 сердечко для обнимашек
+  const ф = new THREE.Shape(); ф.moveTo(0, -0.5); ф.bezierCurveTo(-0.9, 0.1, -0.5, 0.75, 0, 0.35); ф.bezierCurveTo(0.5, 0.75, 0.9, 0.1, 0, -0.5);
+  return new THREE.Mesh(new THREE.ShapeGeometry(ф, 12), new THREE.MeshBasicMaterial({ color:new THREE.Color(0xff6ec7).multiplyScalar(1.6), transparent:true, side:THREE.DoubleSide, fog:false, depthWrite:false }));
+}
+МУЛЬТИКИ.эпилог = {
+  музыка:'lair',
+  собрать(с) {
+    applyWorldLook('lair'); buildTerrain();
+    const пол = new THREE.Mesh(new THREE.CircleGeometry(90, 48), envSurface('masonry', 0x51465f, 6)); пол.rotation.x = -Math.PI/2; пол.position.y = 0.05; world.add(пол);
+    // 🤖 КОШМАРАТОР (как за троном) — отдельными частями, чтобы развалился
+    с.кош = new THREE.Group(); с.кош.position.set(0, 0, -40); world.add(с.кош); с.части = [];
+    const часть = (geo, m, x, y, z) => { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); с.кош.add(me); с.части.push({ me, v:new THREE.Vector3(), w:new THREE.Vector3(), лежит:false }); return me; };
+    часть(new THREE.BoxGeometry(16, 20, 12), metalM(0x59607a, 0.45), 0, 10, 0);
+    часть(new THREE.BoxGeometry(9, 6, 8), metalM(0x6b7290, 0.4), 0, 23, 0);
+    for (const ox of [-1, 1]) { часть(new THREE.SphereGeometry(1.1, 12, 10), emisM(0xff3b5c, 2.4), ox*2.6, 23.6, 4.1);
+      часть(new THREE.CylinderGeometry(1.5, 1.2, 14, 8), metalM(0x4a5068, 0.5), ox*10, 12, 0).rotation.z = ox*0.18;
+      часть(new THREE.CylinderGeometry(2.0, 2.4, 8, 8), metalM(0x4a5068, 0.5), ox*4.5, 4, 0); }
+    for (let i = 0; i < 6; i++) часть(new THREE.CylinderGeometry(0.28, 0.28, 26, 6), emisM(0x93c5fd, 1.0), rnd(-7, 7), 16, -8).rotation.set(rnd(-0.5, 0.5), 0, rnd(-0.4, 0.4));
+    for (let i = 0; i < 18; i++) часть(new THREE.BoxGeometry(rnd(1, 3), rnd(1, 3), rnd(1, 3)), metalM(i % 2 ? 0x59607a : 0x4a5068, 0.5), rnd(-7, 7), rnd(2, 20), rnd(-5, 5));   // обломки — краденые детали
+    с.кошСвет = new THREE.PointLight(0xff3b5c, 26, 80); с.кошСвет.position.set(0, 22, -32); world.add(с.кошСвет);
+    с.я = киноЧеловек(COLORS[save.color].hex, save.suit, save.hat, 0, 6, Math.PI);
+    с.блик = киноБлик(2.6, 3, 7.5);
+    с.друзья = ДРУЗЬЯ.map((д, i) => { const h = киноЧеловек(д.цвет, д.костюм, д.шляпа, -4 + i*4, -26, 0); h.visible = false; return h; });
+    с.морок = киноМорок(0, 0, -5); с.морок.visible = false; с.морок.rotation.y = 0;
+    с.мСвет = new THREE.PointLight(0xa855f7, 0, 22); с.мСвет.position.set(0, 6, -1); world.add(с.мСвет);
+    с.сердца = [];
+  },
+  всегда(с, dt, к) {
+    if (с.блик.visible) { _кв.set(2.6 + (с.кружит ? Math.cos(к.всего*2)*2.2 : 0), 3 + Math.sin(к.всего*1.8)*0.3 + (с.кружит ? 0.6 : 0), 7.5 + (с.кружит ? Math.sin(к.всего*2)*2.2 - 2 : 0));
+      с.блик.position.lerp(_кв, Math.min(1, dt*3)); киноБликТик(с.блик, dt, с.я.position); }
+    for (const ч of с.части) { if (!ч.пад || ч.лежит) continue;                     // 💥 детали падают и отскакивают
+      ч.v.y -= 30*dt; ч.me.position.addScaledVector(ч.v, dt); ч.me.rotation.x += ч.w.x*dt; ч.me.rotation.z += ч.w.z*dt;
+      if (ч.me.position.y < 0.8) { ч.me.position.y = 0.8; if (Math.abs(ч.v.y) > 6) { ч.v.y *= -0.3; ч.v.x *= 0.5; ч.v.z *= 0.5; киноДым(с.кош.position.x + ч.me.position.x, 1, с.кош.position.z + ч.me.position.z, 0x8b8196, 2.2); } else ч.лежит = true; } }
+    for (let i = с.сердца.length - 1; i >= 0; i--) { const s = с.сердца[i]; s.t += dt; s.м.position.y += dt*1.6; s.м.position.x += Math.sin(s.t*3 + i)*dt*0.6;
+      s.м.lookAt(camera.position); s.м.material.opacity = Math.max(0, 1 - s.t/2.4); if (s.t > 2.4) { world.remove(s.м); с.сердца.splice(i, 1); } }
+    if (с.морок.visible) киноМорокТик(с.морок, к.всего, с.смех ? 0.7 : 0.3);
+  },
+  кадры: [
+    { длит:5.5, реплика:['📖 рассказчик', 'Последний рубильник щёлкнул — и Кошмаратор затрясся, заискрил и пошёл трещинами…'], рт:0.6,
+      нач(с) { sfx('boss'); },
+      тик(с, t) { с.кош.position.x = Math.sin(t*40)*0.25*Math.min(1, t/2); кино.тряска = Math.max(кино.тряска, 0.15);
+        if (Math.random() < 0.25) puff(rnd(-8, 8), rnd(4, 24), -40 + rnd(-4, 6), Math.random() < 0.5 ? 0xff8c1a : 0xc084fc, 10);
+        с.кошСвет.intensity = 26 + Math.sin(t*25)*14; },
+      кам(с, t) { камера(7 - t*0.4, 4.5, 21, 0, 12, -40); } },
+    { длит:5.5, реплика:['💙 Блик', 'Он разваливается! Получилось!'], рт:1.2,
+      нач(с) { sfx('super'); кино.тряска = 0.9; с.кош.position.x = 0;
+        с.части.forEach((ч, i) => { ч.пад = true; ч.v.set(rnd(-9, 9), rnd(2, 12), rnd(-4, 9)); ч.w.set(rnd(-3, 3), 0, rnd(-3, 3)); });
+        for (let i = 0; i < 40; i++) киноДым(rnd(-12, 12), rnd(1, 18), -40 + rnd(-8, 8), i % 3 ? 0x8b8196 : 0x4b3f5c, rnd(3, 6), new THREE.Vector3(rnd(-3, 3), rnd(1, 4), rnd(-1, 3)), 4.5); },
+      тик(с, t) { с.кошСвет.intensity = Math.max(0, 26 - t*8); if (Math.random() < 0.3) киноДым(rnd(-14, 14), 1.5, -38 + rnd(-6, 8), 0x8b8196, rnd(3, 5)); },
+      кам(с, t) { камера(-16 + t*0.6, 8, 8, 0, 6, -36); } },
+    { длит:6.5, реплика:['🧒 Друзья', 'Мы свободны! Ты нас спас!'], рт:2.4,
+      нач(с) { с.друзья.forEach(h => h.visible = true); },
+      тик(с, t, dt) { с.друзья.forEach((h, i) => киноИдти(h, -1.6 + i*1.6, 3.4, 4.2, dt)); киноЛицом(с.я, 0, -20);
+        if (Math.random() < 0.2) киноДым(rnd(-10, 10), 1.2, -24 + rnd(-4, 4), 0x8b8196, rnd(2, 4)); },
+      итог(с) { с.друзья.forEach((h, i) => h.position.set(-1.6 + i*1.6, 0, 3.4)); },
+      кам(с, t) { камера(1.5, 2.8, 12, 0, 1.6, -12); } },
+    { длит:6.5, реплика:['📖 рассказчик', 'Друзья снова вместе! Обнимашки!'], рт:0.8,
+      нач(с) { startTheme('forest'); с.кружит = true; },
+      тик(с, t, dt) {
+        с.друзья.forEach((h, i) => { const a = -2.2 + i*2.2, x = Math.sin(a)*1.05, z = 6 - Math.cos(a)*1.05; if (киноИдти(h, x, z, 3, dt)) { киноЛицом(h, 0, 6); const u = h.userData; if (u.arms) { u.arms[0].rotation.set(-1.5, 0, 0.7); u.arms[1].rotation.set(-1.5, 0, -0.7); } } });
+        киноЛицом(с.я, 0, 3); const u = с.я.userData; if (u.arms) { u.arms[0].rotation.set(-1.5, 0, 0.7); u.arms[1].rotation.set(-1.5, 0, -0.7); }
+        с.я.position.y = Math.abs(Math.sin(t*5))*0.15;
+        if (Math.random() < dt*5) { const м = киноСердце(); м.position.set(rnd(-1.5, 1.5), 2.6, 5.4 + rnd(-1, 1)); м.scale.setScalar(rnd(0.5, 0.9)); world.add(м); с.сердца.push({ м, t:0 }); } },
+      кам(с, t) { const a = 0.6 + t*0.25; камера(Math.sin(a)*7, 3.4, 5.4 + Math.cos(a)*7, 0, 1.4, 5.4); } },
+    { длит:5, реплика:['💙 Блик', 'Смотри — кошмары уходят! Все миры снова светлеют!'], рт:1.4,
+      нач(с) { киноВспышка('#ffffff', 1, 1.6); applyWorldLook('forest'); с.кошСвет.intensity = 0; },
+      тик(с, t, dt) { if (Math.random() < dt*3) { const м = киноСердце(); м.position.set(rnd(-1.5, 1.5), 2.6, 5.4 + rnd(-1, 1)); м.scale.setScalar(rnd(0.5, 0.9)); world.add(м); с.сердца.push({ м, t:0 }); } },
+      кам(с, t) { камера(0, 4 + t*0.8, 15 + t*1.2, 0, 3 + t*1.4, 0); } },
+    { длит:2, нач(с) { киноЗатемнить('#000', 1.6); stopTheme(); }, кам(с, t) { камера(0, 8, 21, 0, 10, 0); } },
+    { длит:4.5, реплика:['👑 Морок', 'Приятных тебе кошмаров, Блик…'], рт:1.6,
+      нач(с) { world.children.forEach(o => { if (o !== с.морок && o !== с.мСвет) o.visible = false; });              // 🌑 всё исчезло — только он
+        sky.visible = false; scene.background = new THREE.Color(0x000000); scene.fog.color.setHex(0x000000); hemi.intensity = 0.12; sun.intensity = 0; fill.intensity = 0;
+        с.морок.visible = true; с.мСвет.intensity = 30; sfx('shade');
+        const e = $('киноЗатемн'); e.style.transition = 'opacity 1.6s'; e.style.opacity = 0; },
+      тик(с, t) { с.мСвет.intensity = 26 + Math.sin(t*3)*6; },
+      кам(с, t) { камера(0, 4.6, 4.2 - t*0.3, 0, 4.4, -5); } },
+    { длит:4, реплика:['👑 Морок', 'Ха-ха-ха-ха! Хо-хо-хо-хо!', '_хохот'], рт:0.2,
+      нач(с) { с.смех = true; },
+      тик(с, t) { с.морок.rotation.z = Math.sin(t*14)*0.05; с.морок.position.y = Math.abs(Math.sin(t*9))*0.15; с.мСвет.intensity = 26 + Math.sin(t*30)*10; },
+      кам(с, t) { камера(0, 4.4, 3.4 + t*0.6, 0, 4.4, -5); } },
+    { длит:2.6,
+      нач(с) { for (let i = 0; i < 24; i++) киноДым(rnd(-1.5, 1.5), rnd(1, 6), -5 + rnd(-1, 1), 0x4c1d95, rnd(1.5, 3)); },
+      тик(с, t) { const k = Math.min(1, t/1.4); с.морок.scale.setScalar(Math.max(0.001, 1 - k)); с.мСвет.intensity = 26*(1 - k); if (t > 1.6) киноЗатемнить('#000', 0.8); },
+      кам(с, t) { камера(0, 4.4, 5.8, 0, 4.2, -5); } },
+  ],
+};
+
 /* =========================================================================
    СТАРТ
    ========================================================================= */
@@ -9724,6 +9859,7 @@ window.__dbg = {
   toQuicksand(){ const q = quicksand[0]; if (!q) return null; player.x = q.x; player.z = q.z;
                  player.y = heightAt(q.x, q.z) + 0.2; return true; },
   get sink(){ return player ? (player.sink || 0) : 0; },
+  get qsFirst(){ const q = quicksand[0]; return q && player ? { x:q.x, z:q.z, r:q.r, px:player.x, pz:player.z } : null; },
   get beaten(){ return JSON.parse(JSON.stringify(save.beaten)); },
   get symbolKind(){ return WORLDS[worldIdx].symbol.id; },
   get clouds(){ return clouds.length; },
