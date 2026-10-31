@@ -285,7 +285,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "34147586d4";</script>
+  <script>window.__APP_VER = "2ac227991b";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -8949,7 +8949,7 @@ function киноПровод(от, до, провис) {                  // �
 function киноПроводДлина(м, k) { const n = м.geometry.index.count; м.geometry.setDrawRange(0, Math.floor(n*Math.max(0, Math.min(1, k))/6)*6); }
 function киноПылесос() {                               // 🌀 пылесос, который Морок отращивает на руке
   const g = new THREE.Group(), тём = plastic(0x1c1030, 0.8), м = metalM(0x9ca3af, 0.3);
-  const рука = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, -0.2, 1.0), new THREE.Vector3(0.8, -0.5, 2.2)]);
+  const рука = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, -0.2, 1.0), new THREE.Vector3(0.8, -0.5, 2.35)]);
   g.add(new THREE.Mesh(new THREE.TubeGeometry(рука, 20, 0.34, 10), тём));
   for (let i = 1; i < 6; i++) { const p = рука.getPoint(i/6), кольцо = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.06, 6, 16), emisM(0x7c3aed, 1.6)); кольцо.position.copy(p); кольцо.lookAt(рука.getPoint(Math.min(1, i/6 + 0.05))); g.add(кольцо); }
   const раструб = new THREE.Group(); раструб.position.set(0.8, -0.5, 2.3); g.add(раструб);
@@ -11195,6 +11195,8 @@ window.__dbg = {
         const зр = new Т.Mesh(new Т.SphereGeometry(0.045, 10, 8), мт(0x111111, 0.3)); зр.position.set(s*0.15, 0.5, 0.51); тело.add(зр); }
       const шл = new Т.Mesh(new Т.TorusGeometry(0.3, 0.06, 8, 20, Math.PI*1.1), мт(0x374151, 0.5)); шл.position.set(0, 0.62, -0.2); шл.rotation.y = Math.PI/2; тело.add(шл);
       const щ = new Т.Mesh(new Т.BoxGeometry(0.5, 0.08, 0.16), мт(0x1f2937, 0.5)); щ.position.set(0, 0.06, 0.5); тело.add(щ);
+      const aКреп=new Т.Vector3(0,.25,.38),bКреп=new Т.Vector3(0,.09,.50),dКреп=bКреп.clone().sub(aКреп);
+      const муфта=new Т.Mesh(new Т.CylinderGeometry(.075,.075,dКреп.length()+.04,12),мт(0x374151,.5));муфта.position.copy(aКреп.add(bКреп).multiplyScalar(.5));муфта.quaternion.setFromUnitVectors(new Т.Vector3(0,1,0),dКреп.normalize());тело.add(муфта);
       for (const [x, z] of [[-0.36, 0.25], [0.36, 0.25], [-0.36, -0.25], [0.36, -0.25]]) { const кол = new Т.Mesh(new Т.CylinderGeometry(0.1, 0.1, 0.08, 14), мт(0x111111, 0.7)); кол.rotation.z = Math.PI/2; кол.position.set(x, 0.1, z); тело.add(кол); u.ноги.push(кол); }
       u.голова = купол; u.высота = 1.25; u.верх = 0.95;
     } else {
