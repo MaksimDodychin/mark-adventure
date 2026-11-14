@@ -287,7 +287,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "e3b4088414";</script>
+  <script>window.__APP_VER = "7ff1bfe835";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -450,7 +450,8 @@
   <button class="btn" data-kino="символы">🌌 Морок забирает символы</button>
   <button class="btn" data-kino="эпилог">🏆 Эпилог: Кошмаратор рушится</button>
   <button class="btn" data-kino="заставкаКристаллов">🏁 Замысел Морока и последний круг</button>
-  <button class="btn hidden" data-kino="мегалазер">💎 Новая концовка: мегалазер</button>
+  <button class="btn hidden" data-kino="мегалазер">💎 Победа над Мороком и мегалазер</button>
+  <button class="btn hidden" data-kino="флик">🔥 Флик на свободе!</button>
   <button class="btn small" id="киноНазад">← НАЗАД</button>
 </div>
 
@@ -801,13 +802,13 @@ function loadSave() {
     titleShown: !!p.titleShown,                                    // заставку показываем один раз
     prologueSeen: !!p.prologueSeen,
     postFinal:!!p.postFinal,
-    crystalStage:['замысел','утро','дом','послание','зал','мир','передача','предупреждение','кабинет','погоня','мегалазер'].includes(p.crystalStage)?p.crystalStage:null,
+    crystalStage:['замысел','утро','дом','послание','зал','мир','передача','предупреждение','кабинет','погоня','мегалазер','флик'].includes(p.crystalStage)?p.crystalStage:null,
     crystals:[...new Set(Array.isArray(p.crystals)?p.crystals.filter(i=>Number.isInteger(i)&&i>=0&&i<25):WORLDS.flatMap((w,i)=>p.magic?.[w.id]?[i]:[]))],
     hiddenGems:[...new Set(Array.isArray(p.hiddenGems)?p.hiddenGems.filter(i=>[1,3,5,9,13,18,23].includes(i)):[])],
     crystalWorld:Number.isInteger(p.crystalWorld)&&p.crystalWorld>=0&&p.crystalWorld<25?p.crystalWorld:0,
     crystalContact:!!p.crystalContact,
     officeOpen:!!p.officeOpen,
-    chaseWon:!!p.chaseWon,laserEnding:!!p.laserEnding,
+    chaseWon:!!p.chaseWon,laserEnding:!!p.laserEnding,flikSeen:!!p.flikSeen,
     chapterJungle: !!p.chapterJungle,
     jungleStage: ['door','arena'].includes(p.jungleStage) ? p.jungleStage : null,
     chapterSpace: !!p.chapterSpace,                                // пролог тоже один раз
@@ -5131,7 +5132,8 @@ function войтиВМирКристалла(i){
 }
 function послеПобеды(){
   if(!save.crystalStage)save.crystalStage='замысел';
-  if(save.crystalStage==='зал')войтиВЗал();
+  if(save.crystalStage==='флик'||(save.crystalStage==='зал'&&save.laserEnding&&!save.flikSeen))начатьПродолжениеФлика();
+  else if(save.crystalStage==='зал')войтиВЗал();
   else if(save.crystalStage==='погоня')начатьПогоню();
   else if(save.crystalStage==='мегалазер')начатьМегалазер();
   else if(save.crystalStage==='кабинет')войтиВКабинет();
@@ -6405,12 +6407,12 @@ function облачкоГео(R) {
    (дешёвая имитация подповерхностного рассеяния); вершинный шейдер гонит волну подола.
    depthWrite:false — сквозь Блика видно мир, а не дыру; лицо непрозрачное и рисуется ДО тела,
    поэтому тело мягко ложится поверх глаз — эффект «под простынёй». */
-function ghostMat() {
+function ghostMat(флик=false) {
   const m = new THREE.MeshStandardMaterial({
-    color: 0x9fd6fb, roughness: 0.26, metalness: 0.0,      // нежно-голубой: солнце и так тянет тело к белому
+    color: флик ? 0xb62632 : 0x9fd6fb, roughness: 0.26, metalness: 0.0,      // нежно-голубой: солнце и так тянет тело к белому
     transparent: true, opacity: 1.0,                // саму прозрачность рисует шейдер (uAlfaC/uAlfaE)
     depthWrite: false, side: THREE.FrontSide,
-    emissive: 0x3aa6e2, emissiveIntensity: 0.72, envMapIntensity: ENV_K });   // мир уже отмасштабирован envStrength()
+    emissive: флик ? 0x9f0c20 : 0x3aa6e2, emissiveIntensity: 0.72, envMapIntensity: ENV_K });   // мир уже отмасштабирован envStrength()
   m.userData.envBase = 1;                           // чтобы следующий envStrength() не сбил
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, {
@@ -6420,9 +6422,9 @@ function ghostMat() {
       uSpd:   { value: 3.0 },
       uRim:   { value: 1.30 },                      // сила свечения края
       uRimP:  { value: 2.1 },                       // резкость края
-      uRimC:  { value: new THREE.Color(0x9fe6ff) },
+      uRimC:  { value: new THREE.Color(флик ? 0xff5356 : 0x9fe6ff) },
       uCore:  { value: 0.55 },                      // свечение «толщи»: центр тоже светится
-      uCoreC: { value: new THREE.Color(0x5cc6f7) },
+      uCoreC: { value: new THREE.Color(флик ? 0xea1b29 : 0x5cc6f7) },
       uAlfaC: { value: 0.54 },                      // сквозь середину видно мир, но силуэт читается
       uAlfaE: { value: 0.95 }                       // на краю почти плотный
     });
@@ -6451,9 +6453,9 @@ function ghostMat() {
   return m;
 }
 
-function makeGhost() {
+function makeGhost(флик=false) {
   const G = new THREE.Group();                      // корень: игра двигает только position
-  const мат = ghostMat();
+  const мат = ghostMat(флик);
   const пятно = пятноТекс();
   const mats = [мат];                               // всё, что надо будет добить в clearWorld
 
@@ -6478,7 +6480,7 @@ function makeGhost() {
   const эхо = [];
   for (let i = 0; i < 2; i++) {
     const мт = new THREE.MeshBasicMaterial({
-      color: 0x8fdcff, transparent: true, opacity: 0, depthWrite: false,
+      color: флик ? 0xff5466 : 0x8fdcff, transparent: true, opacity: 0, depthWrite: false,
       blending: THREE.AdditiveBlending, toneMapped: false });
     const m = new THREE.Mesh(эхоГео, мт);
     m.scale.setScalar((0.50 - i * 0.18) * GH);
@@ -6495,7 +6497,7 @@ function makeGhost() {
   дых.add(корпус);
 
   // 💡 объём: внутренняя изнанка тела, аддитивно — свет «в толще», а не пятно-наклейка
-  const внутрМ = new THREE.MeshBasicMaterial({ color: 0x3aa6e2, transparent: true, opacity: 0.34,
+  const внутрМ = new THREE.MeshBasicMaterial({ color: флик ? 0x9f0c20 : 0x3aa6e2, transparent: true, opacity: 0.34,
     depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, toneMapped: false });
   const внутр = new THREE.Mesh(корпус.geometry, внутрМ);
   внутр.scale.setScalar(0.86); внутр.renderOrder = -1; дых.add(внутр); mats.push(внутрМ);
@@ -6536,6 +6538,10 @@ function makeGhost() {
     б1.position.set(0.027, 0.046, 0.072); п.add(б1);
     const б2 = new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 4), искрМ);
     б2.position.set(-0.031, -0.040, 0.068); п.add(б2);
+    if(флик){
+      const бровь=new THREE.Mesh(new THREE.BoxGeometry(.19,.045,.055),тёмный);
+      бровь.position.set(0,.12,.055);бровь.rotation.z=s*.37;п.add(бровь);
+    }
     лицо.add(п); глаза.push(п);
   }
   // улыбка: дуга тора, открытая вверх
@@ -6545,7 +6551,7 @@ function makeGhost() {
   // румянец: мягкие пятна (обычное смешивание — на белом теле аддитивного не видно)
   const щёки = [];
   for (const s of [-1, 1]) {
-    const щм = new THREE.MeshBasicMaterial({ map: пятно, color: 0xff8fae, transparent: true,
+    const щм = new THREE.MeshBasicMaterial({ map: пятно, color: флик ? 0xd32f47 : 0xff8fae, transparent: true,
       opacity: 0.62, depthWrite: false, toneMapped: false });
     const щ = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.16), щм);
     щ.position.set(s * 0.30, 0.085, наПоверх(0.085, 0.30, 0.024));
@@ -6554,7 +6560,7 @@ function makeGhost() {
   }
 
   /* --- ореол и искры --- */
-  const ореолМ = new THREE.SpriteMaterial({ map: пятно, color: 0x9fe0ff,
+  const ореолМ = new THREE.SpriteMaterial({ map: пятно, color: флик ? 0xff414e : 0x9fe0ff,
     transparent: true, opacity: 0.30, depthWrite: false, blending: THREE.AdditiveBlending,
     toneMapped: false });
   const ореол = new THREE.Sprite(ореолМ);
@@ -6568,19 +6574,19 @@ function makeGhost() {
   искрАтр.setUsage(THREE.DynamicDrawUsage);          // буфер шлём каждый кадр
   искрГео.setAttribute('position', искрАтр);
   искрГео.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
-  const искрыМ = new THREE.PointsMaterial({ map: пятно, color: 0xdff3ff,
+  const искрыМ = new THREE.PointsMaterial({ map: пятно, color: флик ? 0xff9c79 : 0xdff3ff,
     size: 0.2, sizeAttenuation: true, transparent: true, opacity: 0.6,
     depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
   const искры = new THREE.Points(искрГео, искрыМ); дых.add(искры); mats.push(искрыМ);
 
-  const свет = new THREE.PointLight(0x9fdcff, 4.5, 9); свет.position.y = 0.1; G.add(свет);
+  const свет = new THREE.PointLight(флик ? 0xff303e : 0x9fdcff, 4.5, 9); свет.position.y = 0.1; G.add(свет);
 
   /* --- состояние --- */
   const st = { t: 0, миг: 1.4, мигФ: 0, дв: 0, yaw: 0, вx: 0, вz: 0, питч: 0, истT: 0, ист: [],
                поз0: new THREE.Vector3(), первый: true };
   for (let i = 0; i < 8; i++) st.ист.push(new THREE.Vector3());
   const _v = new THREE.Vector3(), _ск = new THREE.Vector3(), _q = new THREE.Quaternion();
-  const тёплый = new THREE.Color(0xffe0a0), холод = new THREE.Color(0x9fe6ff);
+  const тёплый = new THREE.Color(0xffe0a0), холод = new THREE.Color(флик ? 0xff5356 : 0x9fe6ff);
 
   G.userData = {
     watch:  new THREE.Vector3(),   // куда смотрят ГЛАЗА (голова героя), координаты мира
@@ -8868,7 +8874,7 @@ function buildDiffs() {
   });
 }
 function refreshMenu() {
-  document.querySelector('[data-kino="мегалазер"]').classList.toggle('hidden',!save.laserEnding);
+  for(const id of ['мегалазер','флик'])document.querySelector('[data-kino="'+id+'"]').classList.toggle('hidden',!save.laserEnding);
   $('slotNum').textContent = slotIdx + 1;
   $('continueBtn').textContent=save.postFinal?'💎 ПРОДОЛЖИТЬ ПОСЛЕ ФИНАЛА':'▶ ПРОДОЛЖИТЬ';
   const пусто = !save.postFinal && save.worlds === 1 && !save.coins && !save.prologueSeen;
@@ -9254,6 +9260,9 @@ for (const кн of document.querySelectorAll('#киноВыбор [data-kino]'))
   const вМеню=()=>{clearWorld();scene.background=new THREE.Color(0x091e2c);state='menu';$('menu').classList.remove('hidden');refreshMenu();};
   if(кн.dataset.kino==='заставкаКристаллов'){
     запуститьМультик('замысел',()=>запуститьМультик('гонкаНаТелефоне',вМеню));return;
+  }
+  if(кн.dataset.kino==='мегалазер'){
+    запуститьМультик('падениеКорабля',()=>запуститьМультик('мегалазер',()=>запуститьМультик('флик',вМеню)));return;
   }
   запуститьМультик(кн.dataset.kino,вМеню);
 });
@@ -9708,7 +9717,11 @@ function начатьПогоню(){
   });
 }
 function начатьМегалазер(){
-  запуститьМультик('мегалазер',()=>{save.laserEnding=true;войтиВЗал();refreshMenu();});
+  запуститьМультик('мегалазер',()=>{save.laserEnding=true;начатьПродолжениеФлика();});
+}
+function начатьПродолжениеФлика(){
+  save.crystalStage='флик';saveNow();refreshMenu();
+  запуститьМультик('флик',()=>{save.flikSeen=true;войтиВЗал();refreshMenu();});
 }
 МУЛЬТИКИ.мегалазер={
   музыка:'space',
@@ -9737,6 +9750,125 @@ function начатьМегалазер(){
       кам(){камера(13,13,12,0,6,-45);}},
     {длит:5,тик(с,t){с.луч.visible=t<.65;с.корабль.userData.половины.forEach((борт,i)=>{const sign=i?1:-1;борт.position.x=sign*t*.8;борт.rotation.z=sign*t*.17;});},
       кам(с,t){камера(7+t,11,-36,0,6,-58);}}]
+};
+
+/* После разреза следуем за левым бортом. Те же декорации пещеры возвращаются в последнем кадре. */
+МУЛЬТИКИ.падениеКорабля={
+  музыка:'space',
+  собрать(с){космосДляПогони();с.враг=корабльХаоса();с.враг.position.set(0,4,-20);},
+  кадры:[МУЛЬТИКИ.погоня.кадры[1]]
+};
+
+function пещераФлика(с){
+  const g=с.пещера;
+  брус(g,0,-.5,-4,100,1,110,0x324b39);
+  const камень=new THREE.DodecahedronGeometry(1,0);
+  const породы=[0x455661,0x364452,0x56615d].map(c=>plastic(c,.97));
+  for(let ряд=0;ряд<4;ряд++){
+    for(let i=0;i<=10;i++){
+      const a=i*Math.PI/10,x=Math.cos(a)*6.5,y=Math.sin(a)*6.5;
+      const скала=propMesh(g,камень,породы[(i+ряд)%3],x,y,-5-ряд*3.2);
+      скала.scale.set(2.4+.4*Math.sin(i),2.1,2.9);скала.rotation.set(ряд*.4,i*.8,i*.51);
+    }
+  }
+  брус(g,0,3,-18,17,8,2,0x181c2b);
+  for(const [x,z,size] of [[-10,3,1],[12,0,1.2],[-13,-8,1.4],[10,-10,1.2],[17,-17,1.5],[-19,-18,1.5]])junglePalm(g,x,z,size);
+  for(let i=0;i<8;i++){
+    const x=(i<4?-1:1)*(3.4+(i%4)*.57),y=6.45-Math.abs(x)*.28;
+    const путь=new THREE.CatmullRomCurve3([new THREE.Vector3(x,y,-4),new THREE.Vector3(x+.25,y-1.1,-3.4),new THREE.Vector3(x-.12,y-2-(i%3)*.45,-3.7)]);
+    propMesh(g,new THREE.TubeGeometry(путь,10,.065,5,false),plastic(0x457558),0,0,0);
+  }
+  с.обломок=корабльХаоса();g.add(с.обломок);с.обломок.userData.половины[1].visible=false;
+  с.обломок.scale.setScalar(.82);
+  с.флик=makeGhost(true);g.add(с.флик);с.флик.visible=false;с.флик.scale.setScalar(1.4);
+  с.морок=киноМорок(2,0,-11);g.add(с.морок);с.морок.scale.setScalar(.69);с.морок.visible=false;
+}
+
+function светВоДворе(с,k){
+  scene.background.copy(с.день).lerp(с.ночь,k);
+  scene.fog.color.copy(scene.background);
+  sun.intensity=промеж(2.1,.23,k);hemi.intensity=промеж(1.7,.52,k);fill.intensity=промеж(.43,.17,k);
+  с.солнце.material.opacity=1-k;
+}
+
+МУЛЬТИКИ.флик={
+  музыка:'jungle',
+  собрать(с){
+    applyWorldLook('jungle');sky.visible=false;scene.background=new THREE.Color(0x617b86);
+    scene.fog.color.copy(scene.background);scene.fog.density=.024;
+    с.пещера=new THREE.Group();с.двор=new THREE.Group();с.комната=new THREE.Group();
+    world.add(с.пещера,с.двор,с.комната);с.двор.visible=с.комната.visible=false;
+    пещераФлика(с);
+    брус(с.двор,0,-.35,-5,120,.7,120,0x83ac61);
+    с.двор.add(киноДомик(0,-7));киноЗабор(с.двор,14,13);
+    for(const [x,z] of [[-12,-8],[11,-10],[17,-17],[-16,-15],[-7,-18]])junglePalm(с.двор,x,z,.8,true);
+    с.солнце=propMesh(с.двор,new THREE.SphereGeometry(2.2,24,16),new THREE.MeshBasicMaterial({color:0xffecab,transparent:true}),12,13,-31);
+    с.день=new THREE.Color(0xa7cfdf);с.ночь=new THREE.Color(0x211e36);
+    с.мяч=киноМяч();с.двор.add(с.мяч);
+    с.ребята=[киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,-3,3,0),
+      ...ДРУЗЬЯ.map((д,i)=>киноЧеловек(д.цвет,д.костюм,д.шляпа,[3,1.4,-2][i],[2.6,.3,-.5][i],0))];
+    с.блик=киноБлик(-3.8,2.3,2.9);с.блик.visible=false;
+    for(const h of с.ребята){h.visible=false;киноЛицом(h,0,2);}
+    брус(с.комната,0,-.2,1,15,.4,13,0xc48e68);
+    брус(с.комната,0,5.3,1,15,.2,13,0xe3d9be);
+    брус(с.комната,0,2.6,-4.8,15,5.2,.3,0xe1cdac);
+    брус(с.комната,-7,2.6,.8,.3,5.2,11,0xc8b799);
+    брус(с.комната,0,0,.5,6,.07,4,0xbc8462);
+    брус(с.комната,-3,.65,-2.3,4.3,1.3,1.7,0x698c9a);
+    брус(с.комната,-3,1.42,-3.05,4.3,.95,.4,0x4e7889);
+    брус(с.комната,2.1,3.2,-4.52,3.45,2.2,.14,0x644a37);
+    брус(с.комната,2.1,3.2,-4.42,3.17,1.92,.09,0x272840);
+    брус(с.комната,2.1,3.2,-4.34,.12,1.95,.09,0xa57d58);
+    брус(с.комната,2.1,3.2,-4.34,3.2,.12,.09,0xa57d58);
+    с.лампа=propMesh(с.комната,new THREE.ConeGeometry(.55,.65,20),emisM(0xffc57e,.9),-5.7,2.65,-2.6);
+    брус(с.комната,-5.7,1.2,-2.6,.12,2.4,.12,0x6f5443);
+    const свет=new THREE.PointLight(0xffc47a,28,14);свет.position.copy(с.лампа.position);с.комната.add(свет);
+  },
+  всегда(с,dt,к){
+    if(с.пещера.visible&&с.флик.visible)киноБликТик(с.флик,dt,с.морок.visible?с.морок.position:null);
+    if(с.блик.visible)киноБликТик(с.блик,dt);
+    if(с.морок.visible)киноМорокТик(с.морок,к.всего,.25);
+  },
+  кадры:[
+    {длит:3.5,тик(с,t,dt){const k=Math.min(1,t/3.35),б=с.обломок;
+      б.position.set(13*(1-k),.95+13*(1-k*k),16-21*k);б.rotation.set(.3+.5*k,1.2*k,-1.9+k*2.55);
+      if(k<1&&Math.random()<dt*16)киноДым(б.position.x,б.position.y+.3,б.position.z,0xa17c68,1);
+    },кам(с,t){const p=с.обломок.position;камера(9-t*.6,5+t*.2,19-t*1.4,p.x*.7,p.y*.8,p.z);}},
+    {длит:1.05,нач(с,к){к.тряска=.45;sfx('boom');for(let i=0;i<11;i++)киноДым(Math.sin(i)*1.2,1,-5+Math.cos(i),0x726856,1.4);},кам(){камера(4,2.2,5,0,1.3,-5);}},
+    {длит:3.5,реплика:['Флик','Да! Свобода! Наконец-то!'],рт:.7,
+      нач(с){с.флик.visible=true;с.флик.position.set(-.65,.85,-5);с.флик.userData.резетШлейф();sfx('portal');},
+      тик(с,t){const k=сглаж(t/1.45);с.флик.position.set(-.65+k*.8,.85+2.1*k+.18*Math.sin(t*2),-5+2.3*k);},
+      кам(с,t){const p=с.флик.position;камера(1.6,2.4,3.5-.45*Math.min(t,4),p.x,p.y-.1,p.z);}},
+    {длит:4.3,нач(с){с.пещера.visible=false;с.двор.visible=true;с.блик.visible=true;
+      for(const h of с.ребята)h.visible=true;светВоДворе(с,0);startTheme('forest');},
+      тик(с,t,dt){const a=t*Math.PI/2;с.мяч.position.set(-2.65*Math.cos(a),.45+2*Math.abs(Math.sin(a)),2.85);с.мяч.rotation.x=t*3;
+        for(let i=0;i<4;i++){const h=с.ребята[i];киноЛицом(h,с.мяч.position.x,2.85);киноШаг(h,dt,1);
+          if(i<2)h.userData.legs[0].rotation.x=-.8*Math.pow(Math.max(0,Math.cos(a+i*Math.PI)),8);}
+      },кам(с,t){камера(5.5-t*.5,3.8,12,0,1.8,.9);}},
+    {длит:3,нач(){startTheme('lair');tone(85,'sine',1.7,.12,37);},
+      тик(с,t){const k=сглаж(t/2.5);светВоДворе(с,k);с.мяч.position.y=.39;
+        for(const h of с.ребята){киноРукиВверх(h,.62*k);h.rotation.x=-.15*k;}},кам(с,t){камера(1.9,2.5,11,1,2+t*.62,-1);}},
+    фраза('💙 Блик','Флик на свободе! Нет, не может быть! Нашему миру грозит великое зло. Скорее в дом!',()=>камера(-4.9,2.7,6.5,-3.5,2,2.8)),
+    {длит:4.3,тик(с,t,dt){с.ребята.forEach((h,i)=>{if(!h.visible||t<i*.22)return;h.rotation.x=0;
+        if(киноИдти(h,0,-3.4,3.9,dt))h.visible=false;});
+        const k=сглаж(t/3.6);с.блик.position.set(-3.8*(1-k),2.3-.6*k,2.9-6.4*k);с.блик.visible=k<1;},
+      кам(с,t){камера(6-t*.4,3.5,8-t*.5,0,1.3,-2);}},
+    фраза('Подруга','Блик, ты узнал его, даже когда за окном никого не было. Кто такой Флик?',()=>камера(3,2.6,5.2,.85,1.55,.2),
+      с=>{с.двор.visible=false;с.комната.visible=true;hemi.intensity=1.45;sun.intensity=1;fill.intensity=.38;
+        с.блик.visible=true;с.блик.position.set(-1,2.15,-.55);с.блик.userData.резетШлейф();
+        с.ребята.forEach((h,i)=>{h.visible=true;h.position.set([-2.6,.5,1.75,2.8][i],0,[.9,1.6,.3,-1][i]);киноШаг(h,0,0);киноЛицом(h,-1,-.55);});}),
+    фраза('💙 Блик','Флик — мой брат. Маленьким он гасил свечку, просто сжимая кулак. Сегодня он погасил целое небо.',()=>камера(-.4,2.5,3.55,-1,2,-.55)),
+    фраза('💙 Блик','И он умеет говорить чужим голосом. Однажды мама позвала меня из колодца. Я уже нагнулся, а из темноты засмеялся Флик.',()=>камера(-3.4,2.3,3.65,-.9,1.95,-.5)),
+    {длит:2.9,нач(с){с.комната.visible=с.блик.visible=false;с.ребята.forEach(h=>h.visible=false);
+        с.пещера.visible=с.морок.visible=true;с.флик.position.set(-1.5,2.8,-3.25);с.флик.userData.резетШлейф();
+        scene.background.setHex(0x292d41);scene.fog.color.copy(scene.background);hemi.intensity=1;sun.intensity=.8;},
+      тик(с,t){с.морок.position.set(2,.16*Math.sin(t*2),-11+3.25*t);киноЛицом(с.морок,-.5,3);},
+      кам(с,t){камера(-3.2,3.1,4-t*.4,1,3.1,-6);}},
+    фраза('👑 Морок','Значит, это ты сидел в трюме. Твой брат уже заметил, что ты выбрался.',()=>камера(-.15,3.95,4.8,1.9,4.2,-1.7)),
+    фраза('Флик','Пусть заметит. Подойди, Морок. У меня есть план. Только говори тише…',()=>камера(.4,3.4,.5,-1.4,2.85,-3.25)),
+    {длит:3.5,тик(с,t){с.флик.position.x=-1.5+сглаж(t/2.5)*2;с.флик.position.y=2.8+сглаж(t/2.5)*1.2;с.флик.position.z=-3.25+сглаж(t/2.5)*1.55;
+        if(t>2.3&&!с.занавес){с.занавес=true;киноЗатемнить('#080a13',1);}},кам(с,t){камера(1+t*.6,3,3+t*2.3,.7,3.5,-2);}}
+  ]
 };
 
 МУЛЬТИКИ.предупреждение={
