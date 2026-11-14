@@ -287,7 +287,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "dc9e645b8b";</script>
+  <script>window.__APP_VER = "1140f4be49";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -9923,8 +9923,8 @@ const советУОбломка=[
 const эпохиВремени=[
   {имя:'Мезозой',фон:'jungle',земля:0x769251,акцент:0xffbb65,находка:'три кусочка янтаря',этапы:['Янтарная долина','Камни над горячим ключом','Гнёзда у вулкана','Тропа длинношеев','Часовщик среди динозавров']},
   {имя:'Средневековье',фон:'ruins',земля:0x84956e,акцент:0x86bcff,находка:'три печати герольда',этапы:['Печати герольда','Разводной мост','Ворота крепости','Дорога в цитадель','Рыцарь маятника']},
-  {имя:'Древний Китай',фон:'forest',земля:0x879c71,акцент:0xff8e58,находка:'три кусочка нефрита',этапы:['Нефритовый сад','Камни лотоса','Барабаны у пагоды','Фонари над дорогой','Медный дракон']},
-  {имя:'Дикий Запад',фон:'desert',земля:0xc88955,акцент:0xffcf70,находка:'три самородка',этапы:['Старательский ручей','Шпалы над ущельем','Старая шахта','Почтовый тракт','Заводной шериф']},
+  {имя:'Древний Китай',фон:'forest',земля:0x879c71,акцент:0xff8e58,находка:'три кусочка нефрита',этапы:['Нефритовый сад','Камни лотоса','Барабаны у пагоды','Фонари над дорогой','Китайский дракон']},
+  {имя:'Дикий Запад',фон:'desert',земля:0xc88955,акцент:0xffcf70,находка:'три самородка',этапы:['Старательский ручей','Шпалы над ущельем','Старая шахта','Почтовый тракт','Бандит с большой дороги']},
   {имя:'Будущее',фон:'space',земля:0x404f6b,акцент:0x6aefef,находка:'три энергоячейки',этапы:['Верфь звездолётов','Орбитальные платформы','Реакторный отсек','Посадочные огни','Последний час']}
 ];
 
@@ -10069,6 +10069,9 @@ function тропаЭпохи(а){
 function заданиеЭпохи(а){
   if(а.бой){
     if(а.финалМорока)return 'Ударами столкни Морока в разлом';
+    if(а.эра===1)return а.уязвим?'Щит опущен! Теперь бей':'Отойди от меча и дождись, когда рыцарь опустит щит';
+    if(а.эра===2)return а.уязвим?'Дракон выдохся. Подбеги и ударь':'Огненная жемчужина! Уклонись в сторону';
+    if(а.эра===3)return а.уязвим?'Лассо вернулось. Подбеги и ударь':'Следи за лассо и отпрыгни от петли';
     return а.уязвим?'Подбеги и ударь, пока он восстанавливается':'Перепрыгни волну и дождись, когда соперник откроется';
   }
   return ['Собери '+эпохиВремени[а.эра].находка,'Запрыгни на три светящиеся платформы','Ударь по трём замкам у дороги','Проведи друга через три маяка: оставайся рядом'][а.шаг];
@@ -10096,6 +10099,10 @@ function начатьЭтапВремени(финальныйПоединок=f
   а.модели=декорацииЭпохи(world,e,шаг);тропаЭпохи(а);
   if(e===4)starfield();
   for(const sign of [-1,1]){addSolid(sign*12,0,.45,24,20);addSolid(0,sign*23,12,.45,20);}
+  if(e===1&&!а.бой){
+    а.крыса=гигантскаяКрыса();world.add(а.крыса);а.крыса.visible=false;
+    а.сторонаКрысы=шаг%2?1:-1;а.следующаяКрыса=2+шаг*.45;
+  }
   if(а.бой)аренаЭпохи(а);
   else{
     а.портал=временнойПузырь(2.15);а.портал.position.set(0,2,-16.5);world.add(а.портал);а.портал.visible=false;
@@ -10125,14 +10132,174 @@ function начатьЭтапВремени(финальныйПоединок=f
   if(д.фон==='jungle'&&!а.бой)startTheme('forest');
   updateHud();bigMsg(д.имя+' · '+д.этапы[шаг],2,'#ffdf8a');hint(заданиеЭпохи(а));
 }
+function овалСущества(g,материал,x,y,z,rx,ry,rz){
+  const m=propMesh(g,new THREE.SphereGeometry(1,16,12),материал,x,y,z);
+  m.scale.set(rx,ry,rz);return m;
+}
+function изогнутаяДеталь(g,материал,точки,толщина){
+  const путь=new THREE.CatmullRomCurve3(точки.map(p=>new THREE.Vector3(...p)));
+  return propMesh(g,new THREE.TubeGeometry(путь,Math.max(8,точки.length*3),толщина,7,false),материал,0,0,0);
+}
+function рыцарьЦитадели(){
+  const g=makeHero(0x8295a4,'armor','none'),u=g.userData;
+  const сталь=metalM(0x93a2b0,.36),чернь=plastic(0x263445),латунь=metalM(0xd7aa62,.45);
+  овалСущества(g,сталь,0,1.68,.015,.435,.47,.43);
+  овалСущества(g,чернь,0,1.68,.302,.376,.22,.183);
+  брус(g,0,1.75,.481,.57,.042,.045,0xb7c7d1);
+  for(let j=-2;j<=2;j++)брус(g,j*.095,1.64,.477-.012*Math.abs(j),.028,.15,.028,0xa1b1bc);
+  овалСущества(g,plastic(0xa22b3d),0,2.16,-.12,.1,.29,.34).rotation.x=-.68;
+  for(const s of [-1,1]){
+    овалСущества(g,сталь,s*.21,.36,.09,.16,.28,.16);
+    овалСущества(g,сталь,s*.45,1.03,.03,.14,.25,.16);
+  }
+  const щит=new THREE.Group();g.add(щит);щит.position.set(-.45,1.05,.42);
+  const контур=new THREE.Shape();контур.moveTo(-.32,.4);контур.lineTo(.32,.4);контур.lineTo(.32,.02);
+  контур.quadraticCurveTo(.29,-.3,0,-.51);контур.quadraticCurveTo(-.29,-.3,-.32,.02);контур.closePath();
+  const форма=new THREE.ExtrudeGeometry(контур,{depth:.07,bevelEnabled:false});propMesh(щит,форма,латунь,0,0,0);
+  const эмаль=propMesh(щит,форма,plastic(0x33577b),0,.008,.085);эмаль.scale.set(.88,.88,.7);
+  брус(щит,0,0,.15,.065,.58,.034,0xebcb89);брус(щит,0,.08,.15,.34,.066,.034,0xebcb89);
+  const меч=new THREE.Group();g.add(меч);меч.position.set(.5,.91,.25);
+  брус(меч,0,.08,0,.09,.31,.11,0x604536);брус(меч,0,.25,0,.43,.075,.12,0xd6b261);
+  const клинок=new THREE.Shape();клинок.moveTo(-.084,.27);клинок.lineTo(.084,.27);клинок.lineTo(.073,1.13);клинок.lineTo(0,1.39);клинок.lineTo(-.073,1.13);клинок.closePath();
+  propMesh(меч,new THREE.ExtrudeGeometry(клинок,{depth:.04,bevelEnabled:false}),сталь,0,0,0);
+  u.меч=меч;u.щит=щит;g.scale.setScalar(1.85);return g;
+}
+function китайскийДракон(){
+  const g=new THREE.Group(),нефрит=plastic(0x368979,.53),брюхо=plastic(0xf2ca77),грива=plastic(0xba5435),рога=metalM(0xe0b66d,.62);
+  const тело=[];
+  for(let i=0;i<18;i++){
+    const k=i/17,r=.61*(1-.8*k),сегмент=new THREE.Group();g.add(сегмент);
+    овалСущества(сегмент,нефрит,0,0,0,r,r,Math.max(.38,r*1.24));
+    овалСущества(сегмент,брюхо,0,-r*.63,.02,r*.8,r*.4,r);
+    propMesh(сегмент,new THREE.ConeGeometry(r*.43,r*.97,8),грива,0,r*1.05,-.05).rotation.x=-.4;
+    if(i===3||i===9)for(const s of [-1,1]){
+      изогнутаяДеталь(сегмент,нефрит,[[s*.32,0,0],[s*.7,-.3,0],[s*.67,-.68,.32]],.105);
+      for(const j of [-1,0,1])изогнутаяДеталь(сегмент,рога,[[s*.67,-.68,.32],[s*.67+j*.12,-.72,.55]],.043);
+    }
+    тело.push(сегмент);
+  }
+  const голова=new THREE.Group();g.add(голова);
+  овалСущества(голова,нефрит,0,0,0,.77,.64,.82);
+  овалСущества(голова,брюхо,0,-.33,.69,.55,.17,.69);
+  овалСущества(голова,нефрит,0,-.035,.66,.56,.25,.72);
+  for(const s of [-1,1]){
+    овалСущества(голова,брюхо,s*.51,.17,.48,.22,.22,.22);
+    овалСущества(голова,plastic(0x243536),s*.55,.18,.65,.09,.14,.076);
+    овалСущества(голова,грива,s*.5,.38,.44,.33,.105,.25).rotation.z=s*.28;
+    овалСущества(голова,plastic(0x31564e),s*.26,.14,1.12,.1,.07,.12);
+    for(let j=0;j<3;j++)овалСущества(голова,грива,s*(.54+j*.07),.04-j*.16,-.27,.22,.36,.38).rotation.x=-.63;
+    изогнутаяДеталь(голова,рога,[[s*.39,.4,-.2],[s*.55,.91,-.34],[s*.73,1.18,-.76]],.087);
+    изогнутаяДеталь(голова,рога,[[s*.51,.83,-.32],[s*.84,1.02,-.19]],.059);
+    изогнутаяДеталь(голова,брюхо,[[s*.47,-.06,1.07],[s*1.02,-.18,1.22],[s*1.46,.01,.98],[s*1.63,.38,.8]],.035);
+  }
+  g.userData.изгиб=t=>{
+    тело.forEach((c,i)=>{const z=i*.405,волна=t*1.7-z*.79;
+      c.position.set(Math.sin(волна)*(.34+.11*z),1.91+.31*Math.cos(волна*.9)+.13*z,-.35-z);
+      c.rotation.y=.42*Math.cos(волна);});
+    голова.position.copy(тело[0].position);голова.position.z+=.68;голова.rotation.z=.07*Math.sin(t*2);
+  };
+  g.userData.изгиб(0);return g;
+}
+function бандитПрерии(){
+  const g=makeHero(0x6b4b3d,'tshirt','none'),кожа=plastic(0x68452f),лента=plastic(0x362a26),платок=plastic(0xa83537);
+  овалСущества(g,кожа,0,1.93,-.01,.68,.105,.5);
+  овалСущества(g,кожа,0,2.03,0,.385,.27,.32);
+  propMesh(g,new THREE.CylinderGeometry(.383,.39,.083,20),лента,0,1.984,0).scale.z=.86;
+  овалСущества(g,платок,0,1.48,.07,.36,.18,.34);
+  propMesh(g,new THREE.ConeGeometry(.19,.32,3),платок,0,1.29,.32).rotation.z=Math.PI;
+  брус(g,0,.82,.33,.145,.112,.066,0xd4ab68);
+  g.scale.setScalar(1.82);return g;
+}
+function гигантскаяКрыса(){
+  const g=new THREE.Group(),мех=plastic(0x675c55,.92),розовый=plastic(0xbd8b80,.9);
+  овалСущества(g,мех,0,.68,0,.62,.62,1.03);
+  овалСущества(g,мех,0,.63,.85,.44,.41,.6);
+  овалСущества(g,розовый,0,.51,1.4,.12,.09,.11);
+  for(const s of [-1,1]){
+    овалСущества(g,мех,s*.32,1.03,.67,.23,.25,.13);
+    овалСущества(g,розовый,s*.32,1.035,.754,.16,.18,.08);
+    овалСущества(g,plastic(0x221e1b),s*.32,.8,1.1,.075,.08,.07);
+    for(const z of [-.52,.54])овалСущества(g,розовый,s*.39,.16,z,.19,.12,.31);
+    for(let j=0;j<2;j++)изогнутаяДеталь(g,plastic(0xcaba9f),[[s*.14,.52,1.27],[s*.46,.53+j*.06,1.39],[s*.7,.51+j*.12,1.42]],.015);
+  }
+  const хвост=new THREE.Group();g.add(хвост);хвост.position.set(0,.54,-.76);
+  изогнутаяДеталь(хвост,розовый,[[0,0,0],[.12,-.28,-.64],[.53,-.37,-1.28],[.65,-.25,-1.7],[.4,-.13,-2]],.085);
+  g.userData.хвост=хвост;return g;
+}
+function крысаНаДороге(а,dt){
+  const g=а.крыса;
+  if(!g.visible){
+    if(а.время<а.следующаяКрыса||а.портал.visible)return;
+    а.сторонаКрысы*=-1;
+    const z=THREE.MathUtils.clamp(player.z-1,-17,15);
+    g.position.set(а.сторонаКрысы*11.2,0,z);g.visible=true;а.укус=false;
+    g.rotation.y=-а.сторонаКрысы*Math.PI/2;
+  }
+  const p=g.position;
+  p.x-=а.сторонаКрысы*dt*4.3;p.y=.07*Math.abs(Math.sin(а.время*14));
+  g.userData.хвост.rotation.y=.28*Math.sin(а.время*8);
+  if(!а.укус&&player.y<1.2&&Math.hypot(player.x-p.x,player.z-p.z)<1.6){
+    а.укус=true;hurtPlayer(1,{x:p.x,z:p.z});
+  }
+  if(p.x*а.сторонаКрысы< -11.2){g.visible=false;а.следующаяКрыса=а.время+8+Math.random()*5;}
+}
+function оружиеЭпохи(а){
+  // Вектор броска фиксируем в конце замаха: игрок успевает шагнуть в сторону.
+  а.направление=new THREE.Vector2(0,1);
+  if(а.эра===2){
+    а.снаряд=new THREE.Group();
+    овалСущества(а.снаряд,emisM(0xffbe51,1.3),0,0,0,.53,.53,.53);
+    for(const j of [-1,1])propMesh(а.снаряд,new THREE.TorusGeometry(.67,.07,6,20),emisM(0xff7543,.95),0,0,0).rotation.y=j*.8;
+  }else if(а.эра===3){
+    const rope=plastic(0xdcaf70,.88);
+    а.снаряд=new THREE.Mesh(new THREE.TorusGeometry(.85,.06,8,36),rope);а.снаряд.scale.y=.75;
+    а.верёвка=propMesh(world,new THREE.CylinderGeometry(.034,.034,1,6),rope,0,0,0);
+  }
+  if(а.снаряд){world.add(а.снаряд);а.снаряд.visible=false;}
+}
+function атакаСтражаЭпохи(а){
+  const t=а.цикл,g=а.враг,p=g.position,dir=а.направление;
+  if(t<1){dir.set(player.x-p.x,player.z-p.z);if(dir.lengthSq()>.001)dir.normalize();else dir.set(0,1);}
+  g.rotation.y=Math.atan2(dir.x,dir.y);
+  if(а.эра===1){
+    const k=сглаж((t-1)/.55);
+    g.userData.меч.rotation.z=а.уязвим?-.96:1.04-k*2.25;
+    g.userData.меч.rotation.x=а.уязвим?.56:.3+1.03*k;
+    g.userData.щит.position.x=а.уязвим?-.68:-.27;g.userData.щит.rotation.z=а.уязвим?-.48:0;
+    const dx=player.x-p.x,dz=player.z-p.z;
+    if(t>=1.18&&t<1.65&&Math.hypot(dx,dz)<3.9&&dx*dir.x+dz*dir.y>0&&player.y<1.6)hurtPlayer(1,{x:p.x,z:p.z});
+    return;
+  }
+  const волшебство=а.эра===2;
+  if(волшебство)g.userData.изгиб(а.время);
+  const летит=t>=1&&t<2.45,снаряд=а.снаряд;
+  снаряд.visible=а.эра===3||летит;
+  if(!снаряд.visible)return;
+  const рука=new THREE.Vector3(волшебство?0:.86,волшебство?1.96:1.79,волшебство?1.42:.43);
+  рука.applyAxisAngle(_вверх,g.rotation.y).add(p);
+  const f=Math.max(0,(t-1)/1.45);
+  const путь=волшебство?f*16:летит?Math.sin(f*Math.PI)*12:0;
+  снаряд.position.copy(рука);снаряд.position.x+=dir.x*путь;снаряд.position.z+=dir.y*путь;
+  if(волшебство){снаряд.position.y-=Math.min(.85,путь*.13);снаряд.rotation.y=t*5;}
+  else{
+    снаряд.position.y+=летит?-.95*Math.sin(f*Math.PI):.25;
+    const r=летит?1:.61;снаряд.scale.set(r,r*.78,r);снаряд.rotation.set(летит?1.12:1.24,.1,а.время*(t<1?9:2));
+    if(!летит)снаряд.position.x+=.35;
+    const нить=а.верёвка,вектор=снаряд.position.clone().sub(рука);
+    нить.position.copy(рука).addScaledVector(вектор,.5);нить.scale.y=вектор.length();нить.quaternion.setFromUnitVectors(_вверх,вектор.normalize());
+  }
+  if(летит&&Math.hypot(player.x-снаряд.position.x,player.z-снаряд.position.z)<(волшебство?1.15:1.4)&&
+     player.y<снаряд.position.y+.48&&player.y+1.9>снаряд.position.y-.48)hurtPlayer(1,рука);
+}
+
 function аренаЭпохи(а){
   const e=а.эра;
-  а.имя=['Часовщик','Рыцарь маятника','Медный дракон','Заводной шериф','Часовщик'][e];
-  if(e===0||e===4)а.враг=часовщик();
-  else if(e===2){а.враг=динозавр(0xb7804a);for(const i of [-1,1])propMesh(а.враг,new THREE.ConeGeometry(.17,.89,6),metalM(0xe3b55e),i*.36,4.33,1.56);}
-  else {а.враг=makeHero(e===1?0x657a99:0xa37445,e===1?'armor':'jumpsuit',e===1?'none':'straw');а.враг.scale.setScalar(1.8);
-    if(e===1)propMesh(а.враг,new THREE.SphereGeometry(.42,14,10),metalM(0x91a0af),0,1.74,0);
-    циферблат(а.враг,0,1.18,.32,.21);}
+  а.имя=эпохиВремени[e].этапы[4];
+  if(e===0||e===4){а.имя='Часовщик';а.враг=часовщик();}
+  else{
+    а.враг=({1:рыцарьЦитадели,2:китайскийДракон,3:бандитПрерии})[e]();
+    оружиеЭпохи(а);
+  }
   world.add(а.враг);а.враг.position.z=-5;
   а.макс=а.силы=e===4?4:3;а.цикл=0;
   а.волна=propMesh(world,new THREE.TorusGeometry(1,.065,8,72),emisM(0xf79c62,1),0,.35,-5);а.волна.rotation.x=Math.PI/2;
@@ -10153,8 +10320,13 @@ function попаданиеВЭпохе(radius){
   const а=поход;if(а?.тип!=='эпоха')return false;
   const near=(p,r)=>Math.hypot(player.x-p.x,player.z-p.z)<=r&&player.y<4;
   if(!а.бой){
-    if(а.шаг!==2)return false;
-    const цель=а.точки.find(g=>!g.userData.готов&&near(g.position,radius+1));if(!цель)return false;
+    let попал=false;
+    if(а.крыса?.visible&&near(а.крыса.position,radius+.55)&&player.y<2.8){
+      const p=а.крыса.position;а.крыса.visible=false;а.следующаяКрыса=а.время+10+Math.random()*5;
+      puff(p.x,.7,p.z,0xb9a690,8);попал=true;
+    }
+    if(а.шаг!==2)return попал;
+    const цель=а.точки.find(g=>!g.userData.готов&&near(g.position,radius+1));if(!цель)return попал;
     засчитатьВремя(а,цель);return true;
   }
   if(а.силы<=0||а.остыл>0||!near(а.враг.position,radius+1.2))return false;
@@ -10164,7 +10336,10 @@ function попаданиеВЭпохе(radius){
   if(а.силы===0){
     if(а.финалМорока){а.падение=0;а.волна.visible=false;}
     else if(а.эра===4){начатьБойСМороком(а);return true;}
-    else{а.враг.visible=а.волна.visible=false;а.портал.visible=true;sfx('portal');}
+    else{
+      а.враг.visible=а.волна.visible=false;if(а.снаряд)а.снаряд.visible=false;if(а.верёвка)а.верёвка.visible=false;
+      а.портал.visible=true;sfx('portal');
+    }
   }
   updateHud();return true;
 }
@@ -10195,6 +10370,7 @@ function тикЭпохи(а,dt){
   а.модели.forEach((m,i)=>{if(а.эра===4)m.position.y=5+(i%3)*1.7+Math.sin(t+i)*.6;else m.rotation.y+=Math.cos(t+i)*.18*dt;});
   if(а.портал.visible){а.портал.rotation.y=t*.7;if(рядом(а.портал.position,2)){следующийЭтапВремени();return;}}
   if(а.бой){тикСхваткиЭпохи(а,dt);return;}
+  if(а.крыса)крысаНаДороге(а,dt);
   if(а.ловушка){
     а.ловушка.position.x=6*Math.sin(t*.78);а.ловушка.rotation.y=t;
     if(рядом(а.ловушка.position,1.45)&&player.y<1.8&&player.hurtT<=0){
@@ -10233,6 +10409,7 @@ function тикСхваткиЭпохи(а,dt){
   }
   const открыт=а.финалМорока||а.цикл>=2.45;
   if(открыт!==а.уязвим){а.уязвим=открыт;updateHud();}
+  if(а.направление){атакаСтражаЭпохи(а);return;}
   const фаза=а.цикл-1;а.волна.visible=фаза>=0&&фаза<1.5;
   if(а.волна.visible){
     const r=1+фаза*8.3;а.волна.position.set(p.x,.36,p.z);а.волна.scale.set(r,r,1);
