@@ -19,6 +19,8 @@
   #err { position:fixed; inset:10px; z-index:99; background:#1a0000ee; border:2px solid #ff5252; border-radius:12px;
     padding:16px; font-size:13px; white-space:pre-wrap; display:none; overflow:auto; }
 
+  #киноВыбор { justify-content:safe center; }
+  #киноВыбор .btn { flex-shrink:0; }
   .screen { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center;
     justify-content:center; gap:14px; text-align:center; padding:20px;
     background:radial-gradient(circle at 50% 35%, #1d4a3a 0%, #0b1220 72%); overflow-y:auto; }
@@ -285,7 +287,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "0efe35e6a2";</script>
+  <script>window.__APP_VER = "39eb5f3591";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -440,6 +442,10 @@
   <h1 style="font-size:clamp(22px,5vw,40px)">🎬 МУЛЬТИКИ</h1>
   <div class="sub">В игре они идут сами — тут можно пересмотреть</div>
   <button class="btn" data-kino="пролог">🏡 Морок врывается</button>
+  <button class="btn" data-kino="встреча-forest">🪵 Морок на пне</button>
+  <button class="btn" data-kino="встреча-desert">❄️ Морок и суперохладитель</button>
+  <button class="btn" data-kino="встреча-ocean">🫧 Морок в куполе</button>
+  <button class="btn" data-kino="встреча-jungle">🚪 Дверь в джунглях</button>
   <button class="btn" data-kino="джунгли">🌴 Полёт в джунгли</button>
   <button class="btn" data-kino="символы">🌌 Морок забирает символы</button>
   <button class="btn" data-kino="эпилог">🏆 Эпилог: Кошмаратор рушится</button>
@@ -691,7 +697,7 @@ const WORLDS = [
   { id:'jungle', em:'🌴', name:'Джунгли',        desc:'Корабль подбили над джунглями. Собери десять связок лиан и почини его.',
     sky:0x8ad6a0, fog:0x9fd8ad, fogNear:16, fogFar:110, ground:0x2f5d2a, enemies:8,
     component:{ em:'🪶', name:'перо гигантской птицы', why:'из него Морок делает крылья роботу' },
-    symbol:{ id:'liana', em:'🍃', name:'связки лиан', need:9 } },
+    symbol:{ id:'liana', em:'🍃', name:'связки лиан', need:10 } },
   { id:'ice',    em:'🧊', name:'Ледяной мир',  desc:'Метель, торосы и яма, ведущая в тайное логово эскимосов.',
     sky:0xdbeafe, fog:0xeaf4ff, fogNear:12, fogFar:80,  ground:0xe6f0fb, enemies:9,
     component:{ em:'🧊', name:'криокристалл', why:'чтобы ядро не перегрелось' },
@@ -787,6 +793,7 @@ function loadSave() {
     titleShown: !!p.titleShown,                                    // заставку показываем один раз
     prologueSeen: !!p.prologueSeen,
     chapterJungle: !!p.chapterJungle,
+    jungleStage: ['door','arena'].includes(p.jungleStage) ? p.jungleStage : null,
     chapterSpace: !!p.chapterSpace,                                // пролог тоже один раз
     locked: !!p.locked,                                            // защищённый файл нельзя удалить
     empty: !p.worlds && !p.coins,                                  // пустой ли файл
@@ -998,7 +1005,7 @@ function markShadows(root) {
   });
 }
 
-const world = new THREE.Group(); scene.add(world);      // всё, что относится к текущему миру
+let world = new THREE.Group(); scene.add(world);      // всё, что относится к текущему миру
 /* всё, что кладут в мир, автоматически получает флаги теней */
 const _worldAdd = world.add.bind(world);
 world.add = (...o) => { o.forEach(x => markShadows(x)); return _worldAdd(...o); };
@@ -1052,7 +1059,7 @@ function splitLayout() {
            второй: { x: вертикально ? w : 0, y:0 } };      // низ/право — Блик
 }
 function applyViewSizes() {
-  const надвое = coop && hero2;
+  const надвое = coop && hero2 && state !== 'кино';
   const L = splitLayout();
   const w = надвое ? L.w : innerWidth, h = надвое ? L.h : innerHeight;
   camera.aspect = w/h; camera.updateProjectionMatrix();
@@ -1810,7 +1817,7 @@ let waterLevel = -99;                               // ниже этой выс�
 /* высота земли в точке — по ней ходит герой и стоит вся растительность */
 function heightAt(x, z) {
   const K = terrainKind;
-  if (K === 'cellar' || K === 'igloo' || K === 'cauldron') return 0;   // подземелья и котёл — ровный пол
+  if (K === 'apeGrove' || K === 'cellar' || K === 'igloo' || K === 'cauldron') return 0;   // подземелья и котёл — ровный пол
   if (K === 'кино') return кино && кино.высота ? кино.высота(x, z) : 0;   // 🎬 декорации мультика
   if (K === 'ruins') {
     const base = fbm(x*0.012+11, z*0.012+7, 4) * 7.5 - 2.2;
@@ -4224,7 +4231,7 @@ function minionDefeated() {
     const дал = Math.min(3, symbolsNeed - symbolsGot);
     if (дал > 0) { symbolsGot += дал;
       setTimeout(() => bigMsg('🎁 +' + дал + ' ' + Wm.symbol.em + ' с обелиска', 2.2, '#86efac'), 900); }
-    setTimeout(() => openBossPit(PYR.x + 12, PYR.z + 12), 2000);
+    if(!bossPit)openBossPit(PYR.x + 12, PYR.z + 12);
   }
   updateHud();
   checkWorldCleared();
@@ -4838,7 +4845,8 @@ function buildCellar(bossKind, backWorld) {
   spawnGhost();
   symbolsNeed = 0; symbolsGot = 0; symbolsGround = 0;
   lastPoint = { x:0, z:8 };
-  spawnBoss(bossKind, 0, -12);
+  if(bossKind==='desert')queueEncounter(bossKind,0,-12);
+  else spawnBoss(bossKind,0,-12);
   bigMsg('🏚 ПОГРЕБ ПОД ПЕСКОМ', 2.6, '#fde68a');
   say('💙 Блик', 'Ух, глубоко! Вон он, в углу. Выберемся по лестнице, когда закончим.', 5.5);
   state = 'play';
@@ -5573,6 +5581,24 @@ function makeMorokBody(g) {
   return { cores };
 }
 
+let pendingEncounter=null;
+function queueEncounter(id,x,z){if(!pendingEncounter)pendingEncounter={id,x,z};}
+function tickEncounter(dt){
+  if(distantHarvester)harvestTick(distantHarvester,time);
+  if(waitingDome&&inDome(player)===waitingDome&&player.y<waitingDome.y+waitingDome.r*.84){
+    queueEncounter('ocean',waitingDome.x+6,waitingDome.z);waitingDome=null;
+  }
+  if(jungleGate){
+    jungleGate.t+=dt;jungleGate.leaf.rotation.y=-1.58*сглаж(jungleGate.t/1.1);
+    if(jungleGate.t>1 && Math.hypot(player.x-portal.x,player.z-portal.z)<2.3 && Math.abs(player.y-portal.y)<3.4) queueEncounter('jungle',0,0);
+  }
+  if(!pendingEncounter)return;
+  const {id,x,z}=pendingEncounter;pendingEncounter=null;
+  запуститьМультик('встреча-'+id,()=>{
+    if(id==='jungle'){enterApeGrove();return;}
+    spawnBoss(id,x,z);
+  },true);
+}
 function spawnBoss(kind, x, z) {
   const info = BOSSES[kind];
   const g = new THREE.Group();
@@ -5929,9 +5955,9 @@ function killBoss() {
       setTimeout(() => { if (state === 'play') startKoshmarator(); }, 10500);
     }
   }
-  for (let i=0;i<5;i++) setTimeout(() => puff(boss.x + (Math.random()-0.5)*4, boss.y + 2 + Math.random()*4,
-                                              boss.z + (Math.random()-0.5)*4, 0xff8c1a, 18), i*220);
-  setTimeout(() => { world.remove(boss.mesh); }, 1200);
+  const defeated=boss;
+  for(let i=0;i<5;i++)setTimeout(()=>{if(boss===defeated&&state==='play')puff(defeated.x+rnd(-2,2),defeated.y+2+rnd(0,4),defeated.z+rnd(-2,2),0xff8c1a,18);},i*220);
+  setTimeout(() => { defeated.mesh.removeFromParent(); }, 1200);
   save.coins += 100; saveNow();
   const W2 = WORLDS[worldIdx];
   if (boss.kind === 'kitchen' && cauldron && !cauldron.saved) {
@@ -5940,11 +5966,12 @@ function killBoss() {
     setTimeout(() => say('💙 Блик', 'Успели! Рагу цело, рецепт у поваров. И костюм повара теперь нам откроют.', 6), 2400);
   }
   if (boss.kind !== 'morok' && symbolsNeed > 0 && symbolsGot < symbolsNeed) {
-    const дал = symbolsNeed - symbolsGot;                   // 🎁 остальные символы он прятал в себе
-    symbolsGot = symbolsNeed;
+    const дал = boss.kind==='forest' ? Math.min(BOSS_SYMBOLS,symbolsNeed-symbolsGot) : symbolsNeed-symbolsGot;                   // 🎁 остальные символы он прятал в себе
+    symbolsGot += дал;
     setTimeout(() => bigMsg('🎁 ИЗ БОССА ВЫПАЛО ' + дал + ' ' + W2.symbol.em, 2.4, '#86efac'), 1400);
-    setTimeout(() => say('💙 Блик', 'Смотри! Остальные ' + W2.symbol.name + ' он прятал в себе. Бак полный!', 5), 2600);
-    setTimeout(() => { save.worlds = Math.max(save.worlds, Math.min(WORLDS.length, worldIdx + 2)); saveNow(); }, 1500);
+    const full=symbolsGot>=symbolsNeed;
+    setTimeout(() => { if(state==='play'&&WORLDS[worldIdx]===W2) blik(full?'Бак полный!':'Ещё остались символы в лесу. Ищем их!',4); }, 2600);
+    if(symbolsGot>=symbolsNeed){save.worlds=Math.max(save.worlds,worldIdx+2);saveNow();}
   }
   bigMsg('🏆 БОСС ПОВЕРЖЕН!\n🪙 +100', 3, '#fde68a');
   startTheme(calmTheme || WORLDS[worldIdx].id);
@@ -6038,7 +6065,7 @@ function speak(who, text, vkey) {
 
 
 function say(who, text, dur) {
-  if (!text) return;
+  if (!text || state==='кино') return;
   $('subs').classList.remove('hidden');
   // режим выбирается в настройках: голосом, субтитрами или вообще без реплик
   if (speechMode === 'off') { $('subs').classList.add('hidden'); return; }
@@ -6587,6 +6614,121 @@ function poundLand() {
 }
 
 /* 👁 ТЕНЬ МОРОКА: он подглядывает за тобой в каждом мире и растворяется */
+let jungleGate=null, apeFight=null, waitingDome=null;
+function junglePending(){
+  return WORLDS[worldIdx].id==='jungle'&&!beaten('jungle','ape');
+}
+function revealJungleDoor(){
+  if(jungleGate||!portal)return;
+  const g=new THREE.Group(),wood=envSurface('timber',0x634127,1),gold=emisM(0xeba64b,.65);
+  for(const x of [-1.7,1.7])propMesh(g,new THREE.BoxGeometry(.46,5.6,.65),wood,x,2.8,0);
+  propMesh(g,new THREE.BoxGeometry(3.9,.6,.78),wood,0,5.46,0);
+  propMesh(g,new THREE.PlaneGeometry(3.1,5.2),new THREE.MeshBasicMaterial({color:0x441755,side:THREE.DoubleSide}),0,2.62,0);
+  const leaf=new THREE.Group();leaf.position.set(-1.51,0,.2);g.add(leaf);
+  for(let i=0;i<6;i++)propMesh(leaf,new THREE.BoxGeometry(.48,5,.19),wood,.25+i*.5,2.56,0);
+  for(const y of [.8,4.2])propMesh(leaf,new THREE.BoxGeometry(3.04,.18,.26),gold,1.5,y,0);
+  propMesh(leaf,new THREE.TorusGeometry(.18,.05,6,14),gold,2.6,2.34,.18);
+  g.position.copy(portal.mesh.position);
+  g.rotation.y=Math.atan2(ship.x-portal.x,ship.z-portal.z);world.add(g);
+  jungleGate={g,leaf,t:0};ship.fueled=true;
+  save.jungleStage='door';save.point='jungle';saveNow();sfx('portal');
+  bigMsg('🚪 НА ПУТИ КОРАБЛЯ — ДВЕРЬ!',3,'#e9b2ff');
+  hint('Войди в дверь у корабля');updateHud();
+}
+function makeNightmareApe(){
+  const g=new THREE.Group(),fur=plastic(0x4f3145,.94),skin=plastic(0xb27668,.84),dark=plastic(0x342939,.87);
+  const oval=(par,mat,x,y,z,w,h,d)=>{
+    const m=propMesh(par,deform(new THREE.IcosahedronGeometry(1,2),.055,14),mat,x,y,z);m.scale.set(w,h,d);return m;
+  };
+  oval(g,fur,0,2.6,0,2.1,2.1,1.35);oval(g,skin,0,2.75,.94,1.18,1.22,.46);
+  oval(g,fur,0,4.65,.23,1.32,1.48,1.08);
+  oval(g,skin,0,4.35,1.14,1.03,.65,.46);oval(g,dark,0,4.7,1.48,.53,.27,.26);
+  const arms=[];
+  for(const side of [-1,1]){
+    oval(g,skin,side*1.25,4.75,.18,.41,.5,.27);
+    oval(g,emisM(0xe0a4ff,1.8),side*.46,5.03,1.2,.19,.16,.10);
+    oval(g,dark,side*.46,5.28,1.11,.52,.16,.23).rotation.z=side*.23;
+    oval(g,fur,side*.90,1.04,-.43,.77,1,.85);oval(g,dark,side*.9,.37,0,.75,.35,.93);
+    const arm=new THREE.Group();arm.position.set(side*1.65,3.43,0);g.add(arm);
+    oval(arm,fur,side*.35,-.6,0,.8,1.28,.9).rotation.z=side*.33;
+    oval(arm,fur,side*.80,-1.70,.62,.67,1.08,.72);oval(arm,dark,side*.85,-2.55,1.02,.7,.50,.73);
+    arms.push(arm);
+  }
+  g.userData.arms=arms;return g;
+}
+function enterApeGrove(){
+  clearWorld();terrainKind='apeGrove';applyWorldLook('jungle');
+  const soil=envSurface('grass',0x839355,10);
+  const ground=propMesh(world,new THREE.CylinderGeometry(64,67,1.5,64),soil,0,-.76,0);ground.receiveShadow=true;
+  for(let i=0;i<30;i++){const a=i*2.4,r=24+i%4*3;junglePalm(world,Math.sin(a)*r,Math.cos(a)*r,.95+(i%4)*.13);}
+  const palms=[];
+  for(let i=0;i<8;i++){
+    const a=i*Math.PI/4,tree=junglePalm(world,Math.sin(a)*13,Math.cos(a)*13,1.28);
+    palms.push(tree);addSolid(tree.position.x,tree.position.z,.73,.73,2);
+  }
+  const ape=makeNightmareApe();world.add(ape);ape.position.set(0,0,-7);
+  apeFight={ape,palms,hp:3,phase:'aim',t:2.2,dx:0,dz:1};
+  spawnPlayer(0,7);spawnGhost();yaw=Math.PI;pitch=.18;player.heading=yaw;
+  if(coop)bindHero2();
+  lastPoint={x:0,z:7};state='play';travelling=false;save.jungleStage='arena';save.point='jungle';saveNow();
+  startTheme('bossfight');sfx('boss');markShadows(world);hideCompass();showSticks();updateHud();
+  bigMsg('🦍 ОБЕЗЬЯНА КОШМАРОВ',2.5,'#f4b6ff');
+  hint('Встань перед пальмой. Когда обезьяна опустит голову, отпрыгни с её пути!');
+}
+function updateApe(dt){
+  const f=apeFight;if(!f)return;
+  const a=f.ape,p=a.position;
+  if(f.phase==='won'){
+    a.scale.multiplyScalar(Math.exp(-dt*3));f.t-=dt;
+    if(f.t<=0){apeFight=null;прибытьВМир(worldIdx+1);}
+    return;
+  }
+  const range=Math.hypot(player.x,player.z);
+  if(range>18.5){player.x*=18.5/range;player.z*=18.5/range;}
+  f.t-=dt;
+  if(f.phase==='aim'){
+    a.rotation.y=Math.atan2(player.x-p.x,player.z-p.z);
+    a.userData.arms.forEach((arm,i)=>arm.rotation.x=-.6-Math.sin(time*10+i*2)*.36);
+    if(f.t<=0){
+      f.dx=Math.sin(a.rotation.y);f.dz=Math.cos(a.rotation.y);f.phase='ready';f.t=.72;
+      a.rotation.x=.18;sfx('boss');hint('Сейчас бросится! Прыгай в сторону!');
+    }
+  }else if(f.phase==='ready'){
+    if(f.t<=0){f.phase='rush';f.t=2.4;}
+  }else if(f.phase==='rush'){
+    p.x+=f.dx*19*dt;p.z+=f.dz*19*dt;
+    a.userData.arms.forEach((arm,i)=>arm.rotation.x=.55*Math.sin(time*13+i*Math.PI));
+    if(Math.hypot(player.x-p.x,player.z-p.z)<2.55&&player.y<1.2){
+      hurtPlayer(1,p);a.rotation.x=0;f.phase='retreat';f.t=1.25;
+      hint('Подожди, пока обезьяна прицелится, и отпрыгни. Дерево должно быть за тобой.');return;
+    }
+    const tree=f.palms.find(tree=>Math.hypot(tree.position.x-p.x,tree.position.z-p.z)<2.65);
+    if(tree||Math.hypot(p.x,p.z)>17||f.t<=0){
+      f.phase='recover';f.t=1.6;a.rotation.x=0;
+      if(tree){
+        f.hp--;f.tree=tree;puff(p.x,3,p.z,0x93c354,18);shake(.5,.35);sfx('clang');updateHud();
+        if(f.hp===0){
+          markBeaten('jungle','ape');save.jungleStage=null;
+          if(!save.done.includes('jungle'))save.done.push('jungle');
+          save.worlds=Math.max(save.worlds,worldIdx+2);saveNow();
+          f.phase='won';f.t=2;bigMsg('🌴 ПОБЕДА! ПУТЬ СВОБОДЕН!',2,'#a7f390');sfx('chime');
+        }
+      }
+    }
+  }else if(f.phase==='retreat'){
+    const d=Math.hypot(p.x,p.z),k=d?Math.min(1,dt*10/d):0;
+    p.x*=1-k;p.z*=1-k;
+    if(f.t<=0||d<1){f.phase='aim';f.t=1.5;}
+  }else{
+    if(f.tree)f.tree.rotation.z=Math.sin(f.t*16)*.1*f.t;
+    if(f.t<=0){
+      if(f.tree)f.tree.rotation.z=0;
+      // Отойти от ствола перед следующим разбегом.
+      f.tree=null;f.phase='retreat';f.t=1.25;
+    }
+  }
+}
+
 let shade = null;
 function spawnShade() {
   const g = new THREE.Group();
@@ -6745,6 +6887,7 @@ function buildAdventureVista(id) {
 }
 
 function clearWorld() {
+  jungleGate=null;apeFight=null;waitingDome=null;distantHarvester=null;pendingEncounter=null;
   disposeAdventureVista();
   resetNature();
   if (ghost && ghost.mesh) (ghost.mesh.userData.mats || []).forEach(m => m.dispose());  // 👻 материалы Блика — на каждый мир свои
@@ -6964,11 +7107,16 @@ function buildWorld(idx) {
   startTheme(W.id);                                        // 🎵 своя музыка у каждого мира
   spawnGhost();                                            // 💙 Блик летит рядом
   if (coop) bindHero2();                                   // 👥 вдвоём — он второй герой
-  spawnShade();                                            // 👁 Морок следит за тобой везде
+  spawnShade(); placeDistantHarvester(W.id);                                            // 👁 Морок следит за тобой везде
   // ☁️ в заоблачном мире герой стоит НА ПОВЕРХНОСТИ, где монеты и враги (просьба Марка),
   // а облака — платформы над головой, на них поднимаются за воздухом и за высокими символами.
   buildMagicStone(W);                     // 💎 после финала в каждом мире свой камень
   buildAdventureVista(W.id);
+  if(W.id==='jungle' && junglePending() && save.jungleStage){
+    if(save.jungleStage==='arena'){enterApeGrove();return;}
+    for(const p of pickups){if(p.kind==='symbol'){p.taken=true;p.mesh.visible=false;}}
+    symbolsGot=symbolsNeed;revealJungleDoor();
+  }
   yaw = W.id === 'lair' ? Math.PI : 0;    // 👑 в логове разворачиваем героя лицом к дворцу
   pitch = 0.14;
   updateHud();
@@ -7089,7 +7237,7 @@ function buildShip(x, z) {
 /* винты крутятся, а лампа приёмника показывает, сколько символов уже внутри */
 function updateShip(dt) {
   if (!ship) return;
-  if (save.hasShip && state === 'play' && Math.hypot(ship.x-player.x, ship.z-player.z) < 5.5) {
+  if (!junglePending() && save.hasShip && state === 'play' && Math.hypot(ship.x-player.x, ship.z-player.z) < 5.5) {
     if (!ship.mapT || time - ship.mapT > 6) {
       ship.mapT = time;
       hint('🚁 Наш корабль. Жми ⏸ → 🗺 КАРТА — полетим в другой мир');
@@ -7103,6 +7251,11 @@ function updateShip(dt) {
   ship.mesh.position.y = heightAt(ship.x, ship.z) + Math.sin(time*1.2)*0.12;
   pushOut(ship.x, ship.z, 3.2);                            // корабль — твёрдый
   // подошёл к приёмнику — сдаёшь символы
+  if(junglePending()&&symbolsGot>=symbolsNeed){
+    if(Math.hypot(ship.x-player.x,ship.z-player.z)<5.5)revealJungleDoor();
+    if(jungleGate)ship.mesh.position.y+=Math.sin(Math.min(1,jungleGate.t/1.5)*Math.PI)*1.3;
+    return;
+  }
   if (Math.hypot(ship.x-player.x, ship.z-player.z) < 4 && symbolsGot >= symbolsNeed && symbolsNeed > 0) {
     if (!ship.fueled) {
       ship.fueled = true;
@@ -7487,7 +7640,7 @@ function scatterPickups(coins, symbols, symKind, area) {
       addPickup('symbol', x, z, symKind);
     }
     symbolsNeed = 0; symbolsGot = 0; symbolsGround = 0;
-    WORLDS[worldIdx].symbol.need = 0;
+    // Количество топлива в описании мира одинаково для всех слотов.
     return;
   }
   const Wc = WORLDS[worldIdx];
@@ -7508,8 +7661,9 @@ function scatterPickups(coins, symbols, symKind, area) {
     while (t < 25 && heightAt(x,z) < waterLevel + 0.4);
     addPickup('symbol', x, z, symKind);
   }
-  symbolsNeed = symbols; symbolsGot = 0; symbolsGround = наЗемле;
-  WORLDS[worldIdx].symbol.need = symbols;                  // счётчик показывает, сколько тут искать
+  symbolsNeed = symbols; symbolsGround = наЗемле;
+  symbolsGot = (beaten(Wc.id,'minion') ? сПриспешника : 0) + (beaten(Wc.id,'boss') ? сБосса : 0);
+
 }
 
 function updatePickups(dt) {
@@ -7620,7 +7774,10 @@ function updateArrow(dt) {
   arrow.visible = false;                      // 3D-компас над головой не читался — он теперь в углу экрана
   // цель: приспешник → босс → портал → ближайший несобранный символ
   let tx = null, tz = null, что = '';
-  if (minion && minion.alive) { tx = minion.x; tz = minion.z; что = 'к приспешнику'; }
+  if(jungleGate){tx=portal.x;tz=portal.z;что='к двери';}
+  else if(waitingDome){tx=waitingDome.x;tz=waitingDome.z;что='к секретному куполу';}
+  else if(junglePending() && ship && symbolsGot>=symbolsNeed){tx=ship.x;tz=ship.z;что='к кораблю';}
+  else if (minion && minion.alive) { tx = minion.x; tz = minion.z; что = 'к приспешнику'; }
   else if (boss && boss.alive) { tx = boss.x; tz = boss.z; что = 'к боссу'; }
   else if (portal && portal.open) { tx = portal.x; tz = portal.z; что = 'к выходу'; }
   else {
@@ -8079,6 +8236,7 @@ function checkArena() {
 function checkWorldCleared() {
   const left = enemies.filter(e => e.alive).length;
   const W = WORLDS[worldIdx];
+  if(state==='кино')return;
   // 🏰 в Месте крушения хватает победы на арене: розетка открывается сразу
   if (W.id === 'ruins') {
     if (minionDone.includes('skrezhet') && portal && !portal.open) {
@@ -8089,6 +8247,14 @@ function checkWorldCleared() {
       updateHud();
     }
     return;
+  }
+  if(apeFight||pendingEncounter)return;
+  if(W.id==='forest' && beaten('forest','minion') && !beaten('forest','boss') && !boss){
+    queueEncounter('forest',GLADE.x+GLADE.r+6,GLADE.z);return;
+  }
+  if(W.id==='jungle'&&junglePending()&&symbolsGot>=symbolsNeed){
+    if(!jungleGate && ship && !ship.called){ship.called=true;hint('Все лианы собраны! Вернись к кораблю для взлёта.');}
+    updateHud();return;
   }
   if (symbolsGot < symbolsGround) return;                 // остальные символы прячет босс
   // врагов зачищать не обязательно: собрал символы — выходит стража
@@ -8105,12 +8271,17 @@ function checkWorldCleared() {
   if (W.id === 'ocean' && BOSSES.ocean && !boss && !beaten('ocean', 'boss')) {
     const секрет = domes.find(d => d.тип === 'секрет');     // 🔒 тарелка ждёт под большим куполом
     if (секрет) {
-      spawnBoss('ocean', секрет.x + 6, секрет.z);
+      if(waitingDome)return;
+      waitingDome=секрет;
       say('💙 Блик', 'Она пряталась под тем большим куполом! Плыви туда — там дышится нормально.', 6);
       return;
     }
   }
   if (BOSSES[W.id] && !boss && !beaten(W.id, 'boss')) {
+    if(W.id==='desert'){
+      if(!bossPit)openBossPit(PYR.x+12,PYR.z+12);
+      return;
+    }
     spawnBoss(W.id, player.x + Math.sin(player.heading)*14, player.z + Math.cos(player.heading)*14);
     return;
   }
@@ -8292,6 +8463,13 @@ function updateHud() {
     : (boss && boss.alive) ? (boss.info.name + ' · ' + boss.hp + ' / ' + boss.maxhp)
     : left ? ('Врагов осталось: ' + left)
     : (symbolsGot >= symbolsNeed ? '⚡ Портал открыт!' : 'Собери символы для корабля');
+  if(apeFight){$('taskCard').textContent='🦍 Обезьяна кошмаров · '+apeFight.hp+' / 3';$('symbolCard').classList.add('hidden');return;}
+  if(junglePending()&&symbolsGot>=symbolsNeed){
+    $('symbolCard').classList.remove('hidden');
+    $('taskCard').textContent=jungleGate?'🚪 Войди в дверь у корабля':'🚁 Вернись к кораблю';
+    $('symbolCard').textContent='🍃 Все лианы собраны';return;
+  }
+  if(waitingDome)$('taskCard').textContent='🫧 Войди в секретный купол';
   const пройден = worldDone(W.id);
   $('symbolCard').classList.toggle('hidden', symbolsNeed === 0 && !пройден);
   if (пройден && symbolsNeed === 0) {
@@ -8788,18 +8966,23 @@ function камераОт(база, dx, dy, dz, цель, ox, oy, oz) {     // �
   camera.position.set(база.x + dx, база.y + dy, база.z + dz); _кв.set(цель.x + (ox || 0), цель.y + (oy || 0), цель.z + (oz || 0));
   camera.lookAt(_кв); кино.фокус.copy(_кв); }
 
-function запуститьМультик(id, после) {
+function запуститьМультик(id, после, наМесте=false) {
   const Ф = МУЛЬТИКИ[id];
   if (!Ф) { if (после) после(); return; }
   try { speechSynthesis.cancel(); } catch (_) {}
-  clearWorld(); terrainKind = 'кино'; СТАРТ.x = 9999; СТАРТ.z = 9999;
+  let back=null;
+  if(наМесте){
+    back={root:world,kind:terrainKind,spawn:{...СТАРТ},cam:camera.position.clone(),rot:camera.quaternion.clone()};
+    world.visible=false;world=new THREE.Group();scene.add(world);
+  }else clearWorld();
+  terrainKind = 'кино'; СТАРТ.x = 9999; СТАРТ.z = 9999;
   кино = { id, Ф, после, i:-1, t:0, всего:0, ск:{}, речьT0:null, тряска:0, высота:null, цвет:null, дым:[], сказано:false, фокус:new THREE.Vector3() };
-  state = 'кино'; paused = false; travelling = false;
+  кино.back=back;state = 'кино';paused=false;travelling=false;applyViewSizes();
   document.body.classList.add('кино'); $('кино').classList.remove('hidden');
   const тм = $('киноЗатемн'); тм.style.transition = 'none'; тм.style.background = '#000'; тм.style.opacity = 1; void тм.offsetWidth; тм.style.transition = 'opacity .9s'; тм.style.opacity = 0;   // из черноты
   for (const э of ['menu', 'prologue', 'chapter', 'pauseScreen', 'mapScreen', 'winScreen', 'subs']) $(э).classList.add('hidden');
   Ф.собрать(кино.ск, кино);
-  flushFoliage(); markShadows(world);
+  if(!наМесте)flushFoliage(); markShadows(world);
   if (Ф.музыка) startTheme(Ф.музыка);
   киноКадр(0);
 }
@@ -8830,6 +9013,11 @@ function кончитьМультик() {
   const тм = $('киноЗатемн');                         // мир строится под чернотой (или белым), потом проявляется
   if (+getComputedStyle(тм).opacity < 0.95) { тм.style.transition = 'none'; тм.style.background = '#000'; тм.style.opacity = 1; }
   document.body.classList.remove('кино'); sky.visible = true; stopTheme();
+  if(к.back){
+    world.traverse(o=>{if(o.geometry&&!o.isSprite)o.geometry.dispose();});
+    scene.remove(world);world=к.back.root;world.visible=true;terrainKind=к.back.kind;Object.assign(СТАРТ,к.back.spawn);
+    state='play';applyWorldLook(terrainKind);camera.position.copy(к.back.cam);camera.quaternion.copy(к.back.rot);applyViewSizes();
+  }
   if (к.после) к.после();
   setTimeout(() => { if (кино) return; тм.style.transition = 'opacity .8s'; тм.style.opacity = 0; setTimeout(() => { if (!кино) $('кино').classList.add('hidden'); }, 850); }, 150);
 }
@@ -8979,6 +9167,180 @@ function киноГрозаНебо(с) { if (!sky.visible) return; sky.visible 
 const ДРУЗЬЯ = [{ цвет:0xe23b3b, костюм:'tshirt', шляпа:'cap', x:-4, z:4 }, { цвет:0xff6ec7, костюм:'dress', шляпа:'straw', x:4, z:6 }, { цвет:0x37c85a, костюм:'jumpsuit', шляпа:'ears', x:-8, z:1 }];
 const ДЫРА = new THREE.Vector3(0, 46, -62), МОРОК_ЗЕМЛЯ = new THREE.Vector3(0, 0, -3), РАКЕТА_МЕСТО = new THREE.Vector3(12, 0, 3);
 const МУЛЬТИКИ = {};
+/* Встречи с Мороком. В портале видны настоящие фигурки друзей за работой. */
+function propMesh(group, geo, mat, x, y, z) {
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x,y,z); group.add(mesh); return mesh;
+}
+function junglePalm(root,x,z,size,leafy=false) {
+  const g=new THREE.Group(); root.add(g); g.position.set(x,0,z); g.scale.setScalar(size);
+  // Геометрия и расцветка деревьев те же, что в игровом мире.
+  const key=leafy?'forest':'palm';
+  if(!junglePalm.models)junglePalm.models={};
+  if(!junglePalm.models[key]){
+    const parts=leafy?natLeafyProto(2):natPalmProto(2);
+    junglePalm.models[key]=parts.map(part=>{
+      const material=part.mat.clone();material.color.multiply(part.tint);
+      return {geo:part.geo,material};
+    });
+  }
+  g.rotation.y=x*.32+z*.16;
+  for(const part of junglePalm.models[key])propMesh(g,part.geo,part.material,0,0,0);
+  return g;
+}
+function harvestProps(root,id) {
+  const morok=new THREE.Group();root.add(morok);makeMorokBody(morok);
+  const vac=киноПылесос();vac.position.set(1.7,5.2,.5);morok.add(vac);
+  const bits=new THREE.Group();morok.add(bits);
+  const colors={forest:0x7cab56,desert:0xffcc80,ocean:0x60e3ff,ice:0xa9e9ff,kitchen:0xff9745,ruins:0xa9acb6,volcano:0xff652c,space:0xffda70,clouds:0xd3f6ff};
+  for(let i=0;i<12;i++){
+    let geo,mat;
+    if(id==='jungle'||id==='forest'){
+      const banana=id==='jungle'&&i%2===0;
+      geo=banana?new THREE.TorusGeometry(.56,.15,8,18,2.45):new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-.7,.4,0),new THREE.Vector3(-.25,-.2,.2),new THREE.Vector3(.35,.22,0),new THREE.Vector3(.8,-.2,-.15)]),12,.10,6,false);
+      mat=plastic(banana?0xffcc38:0x57a74e,.8);
+    }else{
+      if(id==='ruins')geo=new THREE.BoxGeometry(.9,.22,.30);
+      else if(id==='ice')geo=new THREE.OctahedronGeometry(.55);
+      else if(id==='space')geo=new THREE.DodecahedronGeometry(.48);
+      else if(id==='clouds')geo=new THREE.TorusGeometry(.44,.08,6,16,Math.PI*1.6);
+      else if(id==='ocean'||id==='kitchen')geo=new THREE.SphereGeometry(.32,10,8);
+      else geo=new THREE.IcosahedronGeometry(.4,0);
+      mat=emisM(colors[id]||0xd8acec,.35);
+    }
+    propMesh(bits,geo,mat,0,0,0);
+  }
+  return {morok,vac,bits};
+}
+function harvestTick(h,t){
+  киноМорокТик(h.morok,t,.28);
+  h.vac.userData.вихрь.rotation.z=t*6;
+  const mouth=h.vac.userData.рот;
+  mouth.getWorldPosition(_кв);h.morok.worldToLocal(_кв);
+  h.bits.children.forEach((p,i)=>{
+    const u=(t*.47+i/12)%1,r=1-u,a=i*2.4+u*5.6;
+    p.position.set(_кв.x+r*(3*Math.cos(a)+1),_кв.y+r*(1.6*Math.sin(a)-3.4),_кв.z+6*r);
+    p.rotation.set(u*4,a,a*.5);p.scale.setScalar(Math.min(1,u*9,r*4));
+  });
+}
+let distantHarvester=null;
+function placeDistantHarvester(id){
+  if(id==='lair')return;
+  const root=new THREE.Group();world.add(root);
+  const edge=MAP.size/2+4, x=worldIdx%2?edge:-edge,z=24;
+  root.position.set(x,Math.max(heightAt(x,z),waterLevel-8),z);
+  const stone=propMesh(root,deform(new THREE.IcosahedronGeometry(1,2),.13,13),matRock(2),0,4,0);
+  stone.scale.set(8,7,7);
+  distantHarvester=harvestProps(root,id);distantHarvester.morok.position.y=10;
+  distantHarvester.morok.scale.setScalar(1.6);distantHarvester.morok.rotation.y=x>0?-1.2:1.2;
+}
+function makeWorkshop(root){
+  const shop=new THREE.Group();root.add(shop);
+  // Все детали и рабочие помещаются в светящийся проём.
+  const metal=metalM(0x56637b,.48),lamp=emisM(0xff516b,1.2);
+  propMesh(shop,new THREE.BoxGeometry(6.8,.35,3),metal,0,-1.75,0);
+  propMesh(shop,new THREE.BoxGeometry(2.6,2,1.1),metal,0,-.1,-.4);
+  propMesh(shop,new THREE.BoxGeometry(1.6,1.1,1),metal,0,1.5,-.4);
+  for(const side of [-1,1]){
+    propMesh(shop,new THREE.CylinderGeometry(.35,.44,.9,8),metal,side*.7,-1.17,-.4);
+    propMesh(shop,new THREE.SphereGeometry(.14,10,8),lamp,side*.37,1.6,.16);
+  }
+  const friends=ДРУЗЬЯ.map((d,i)=>{
+    const h=makeHero(d.цвет,d.костюм,d.шляпа);shop.add(h);
+    h.scale.setScalar(.76);h.position.set([-2.25,2.25,.25][i],-1.52,i===2?1.15:.15);
+    h.rotation.y=[1.1,-1.1,Math.PI][i];
+    const part=propMesh(h.userData.arms[0],new THREE.BoxGeometry(.22,.48,.25),metal,0,-.55,.15);
+    propMesh(part,new THREE.BoxGeometry(.53,.17,.24),metal,0,-.24,0);
+    return h;
+  });
+  return {shop,friends};
+}
+const MOROK_LINES={
+  forest:['Это так трагично! Храбрый человечек и Блик хотят спасти своих глупеньких друзей! Но вы же не думали найти их всех здесь?',
+    'Нет, они строят мой Кошмаратор совсем в другом месте. Но я разрешаю на них посмотреть.',
+    'Вот они, трудолюбивые, как пчёлки. И так радуются!',
+    'Чтобы им было легче с работой, Кошмаратору нужен компонент. А лучше живых волокон в этом лесу ничего не найти!',
+    'Видите, как тянется лоза? Вот такие будут у него мышцы. Лесоруб, тут ещё два зрителя. Займись ими!'],
+  desert:['Подержите-ка песок в ладони. А теперь смотрите! Из каждой такой крупинки выйдет стекло для глаз моей машины.',
+    'Что, жарко? У меня есть мастер по этой части. Суперохладитель, устрой гостям прохладный приём!'],
+  ocean:['О, я рад, что вы добрались! Похищать воду гораздо интереснее, особенно когда есть зрители.',
+    'Ну зачем так смотреть, Блик? У меня же с вами так много общего. Вы хотели перемен, приключений? Вы их получили!',
+    'Ну же, давайте объединим усилия и вместе изменим все королевства. Я знаю, твоим друзьям это понравится.',
+    'Видишь, мой Кошмаратор строится на глазах. Скоро хаос будет повсюду, неся за собой страхи и кошмары.',
+    'Их нельзя остановить. Но можно присоединиться.'],
+  jungle:['О нет, это они, главные зануды королевств! Почему вы всегда портите веселье?',
+    'Смотрите, как им нравится! Они работают ради своего общего и славного будущего.',
+    'И вы хотите лишить этого своих друзей? Отправить бы вас за это в пещеру стыда!',
+    'Тогда познакомьтесь с этим проявлением кошмаров. Смотрите, как мои кошмары подчиняют всех моей воле!']
+};
+function morokFilm(id){
+  const visionAt=id==='jungle'||id==='forest'?1:id==='ocean'?3:-1;
+  return {
+    музыка:id,
+    собрать(s){
+      applyWorldLook(id);scene.fog.density=.009;
+      const floor=propMesh(world,new THREE.CylinderGeometry(48,49,1,60),envSurface(id==='ocean'?'ceramic':id==='desert'?'sand':'grass',id==='ocean'?0x7bbaab:id==='desert'?0xd8a663:0x719b54,8),0,-.55,0);
+      if(id==='ocean'){
+        const ribs=metalM(0xa9d3d1,.5);
+        for(let i=0;i<7;i++){
+          const arch=propMesh(world,new THREE.TorusGeometry(19,.18,8,50,Math.PI),ribs,0,0,0);arch.rotation.y=i*Math.PI/7;
+        }
+        propMesh(world,new THREE.SphereGeometry(18.9,32,16,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x58c9de,transparent:true,opacity:.20,side:THREE.DoubleSide,depthWrite:false}),0,0,0);
+        propMesh(world,new THREE.CylinderGeometry(3.9,4,.16,36),metalM(0x4bcad3,.12),2,.08,6);
+      }else if(id==='desert'){
+        for(let i=0;i<8;i++){const dune=propMesh(world,new THREE.SphereGeometry(1,20,10),floor.material,Math.cos(i*.86)*32,-1,Math.sin(i*.86)*32);dune.scale.set(12,5,9);}
+      }else{
+        for(let i=0;i<21;i++){
+          const x=Math.sin(i*2.4)*(18+i%4),z=Math.cos(i*2.4)*(18+i%4);
+          if(z>4&&Math.abs(x)<15)continue;
+          junglePalm(world,x,z,1.2+(i%3)*.20,id==='forest');
+        }
+      }
+      s.h=harvestProps(world,id);s.h.morok.position.x=-2.2;
+      if(id==='forest'){
+        const bark=envSurface('bark',0x895d3d,1),wood=envSurface('timber',0xc59861,1);
+        propMesh(world,new THREE.CylinderGeometry(3.4,4.25,2.2,17),bark,-2.2,1.05,0);
+        propMesh(world,new THREE.CylinderGeometry(3.37,3.4,.12,17),wood,-2.2,2.20,0);
+        for(const radius of [1.5,2.4,3]){const ring=propMesh(world,new THREE.TorusGeometry(radius,.045,5,36),bark,-2.2,2.27,0);ring.rotation.x=-Math.PI/2;}
+        s.h.morok.position.y=2.25;
+      }
+      s.blik=киноБлик(2.8,1.65,8);s.hero=киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,.8,12,Math.PI);
+      if(id==='ocean'){
+        for(const side of [-1,1]){
+          const eye=s.blik.userData.глаза[side<0?0:1];
+          const brow=propMesh(s.blik.userData.лицо,new THREE.CapsuleGeometry(.024,.17,3,6),plastic(0x24354c),eye.position.x,eye.position.y+.09,eye.position.z+.065);brow.rotation.z=side*-1.12;
+        }
+      }
+      s.gate=киноДыра();world.add(s.gate);s.gate.position.set(4.25,4.7,-.7);s.gate.visible=false;
+      const w=makeWorkshop(world);s.work=w.shop;s.friends=w.friends;s.work.position.set(4.25,4.7,-.36);s.work.visible=false;
+    },
+    всегда(s,dt,k){
+      harvestTick(s.h,k.всего);
+      s.gate.userData.вихрь.rotation.z=k.всего*.8;
+      киноБликТик(s.blik,dt,k.i===2&&id==='ocean'?camera.position:s.h.morok.position);
+      if(s.work.visible)s.friends.forEach((f,i)=>{f.userData.arms[0].rotation.x=-1+Math.sin(k.всего*4+i)*.65;f.userData.head.rotation.z=Math.sin(k.всего*2+i)*.08;});
+    },
+    кадры:[
+      {длит:2.3,тик(s,t,dt){киноИдти(s.hero,.8,6,3,dt);},кам(s,t){камера(1,3.4,14-t,.4,4,1);}},
+      ...MOROK_LINES[id].map((line,i)=>({
+        длит:2.2,реплика:['👑 Морок',line],рт:.2,
+        нач(s){if(id==='forest'&&i===3){s.work.visible=false;s.gate.visible=false;}if(i===visionAt){s.gate.visible=true;s.work.visible=true;sfx('clang');sfx('portal');киноВспышка('#d4adff',.38,.38);}},
+        тик(s,t){if(i===visionAt){const k=сглаж(Math.min(1,t/.7));s.gate.scale.setScalar(.51*k);s.work.scale.setScalar(1.1*k);s.h.morok.userData.tent[0].group.rotation.z-=Math.sin(Math.min(1,t/.55)*Math.PI)*1.15;}},
+        кам(s,t){
+          if(i===visionAt||(id==='forest'&&i===2))камера(4.8,5.2,10,4.25,4.7,0);
+          else if(id==='ocean'&&i===1&&t<2.1)камера(3,2.05,10.2,2.8,1.68,8);
+          else камера(-8+Math.sin(t*.25)*.7,5.8,12.5,-1.3,4.6+s.h.morok.position.y*.4,1.5);
+        }
+      })),
+      {длит:2.5,нач(s){s.work.visible=false;s.gate.visible=true;s.gate.position.set(-2.2,4,-3);sfx('portal');},
+       тик(s,t){const k=сглаж(Math.min(1,t/1.7));s.gate.scale.setScalar(.55*(1-сглаж((t-1.65)/.8)));s.h.morok.position.z=-4*k;s.h.morok.scale.setScalar(1-k);},
+       кам(){камера(4,4.5,12,-2,3,-2);}}
+    ]
+  };
+}
+for(const id of Object.keys(MOROK_LINES))МУЛЬТИКИ['встреча-'+id]=morokFilm(id);
+
 МУЛЬТИКИ.пролог = {
   музыка:'forest',
   собрать(с) {
@@ -9505,6 +9867,9 @@ $('ctrlBtn').addEventListener('click', () => {
 обновитьКнопкуУпр();
 $('coopBtn').addEventListener('click', toggleCoop);
 $('flyBtn').addEventListener('click', () => {
+  if(junglePending()&&!apeFight&&symbolsGot>=symbolsNeed){
+    setPause(false);revealJungleDoor();return;
+  }
   buildMap(); setPause(false); $('mapScreen').classList.remove('hidden');
   $('hud').classList.add('hidden'); hideCompass(); $('actions').classList.add('hidden'); state = 'menu';
 });
@@ -9597,9 +9962,11 @@ function loop(now) {
     updateCheckpoints(dt);
     updateArrow(dt);
     updatePortal(dt);
+    if(state==='play')updateApe(dt);
     updateFx(dt);
     updateSun();
     updateCamera(dt);
+    if(state==='play')tickEncounter(dt);
   } else if (state === 'кино') { обновитьКино(dt); updateFx(dt); }   // 🎬 мультик
   renderFrame();
 }
