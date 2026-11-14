@@ -287,7 +287,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "7ff1bfe835";</script>
+  <script>window.__APP_VER = "dc9e645b8b";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -299,7 +299,7 @@
       <div class="advBrand"><div class="logo">🗺</div><span>Игры Марка · большой путь</span></div>
       <h1>БОЛЬШОЕ<br>ПРИКЛЮЧЕНИЕ</h1>
       <div class="sub"><b>11 миров</b> — от руин замка до логова Морока.<br>Ищи символы, побеждай боссов и путешествуй с Бликом.</div>
-      <div class="advMainActions"><button class="btn" id="continueBtn">▶️ ПРОДОЛЖИТЬ</button><button class="btn" id="startBtn">✨ НОВАЯ ИГРА</button></div>
+      <div class="advMainActions"><button class="btn" id="continueBtn">▶️ ПРОДОЛЖИТЬ</button><button class="btn hidden" id="timeChapterBtn">⏱ ПУТЕШЕСТВИЕ ВО ВРЕМЕНИ</button><button class="btn" id="startBtn">✨ НОВАЯ ИГРА</button></div>
       <div class="advTools">
         <button class="btn small" id="mapBtn">🗺 КАРТА МИРОВ</button>
         <button class="btn alt small" id="wardrobeBtn">👕 ГАРДЕРОБ</button>
@@ -452,6 +452,8 @@
   <button class="btn" data-kino="заставкаКристаллов">🏁 Замысел Морока и последний круг</button>
   <button class="btn hidden" data-kino="мегалазер">💎 Победа над Мороком и мегалазер</button>
   <button class="btn hidden" data-kino="флик">🔥 Флик на свободе!</button>
+  <button class="btn hidden" data-kino="встречаЧасовщика">⏱ Машина времени</button>
+  <button class="btn hidden" data-kino="изгнание">🌀 Пространственное изгнание</button>
   <button class="btn small" id="киноНазад">← НАЗАД</button>
 </div>
 
@@ -802,13 +804,14 @@ function loadSave() {
     titleShown: !!p.titleShown,                                    // заставку показываем один раз
     prologueSeen: !!p.prologueSeen,
     postFinal:!!p.postFinal,
-    crystalStage:['замысел','утро','дом','послание','зал','мир','передача','предупреждение','кабинет','погоня','мегалазер','флик'].includes(p.crystalStage)?p.crystalStage:null,
+    crystalStage:['замысел','утро','дом','послание','зал','мир','передача','предупреждение','кабинет','погоня','мегалазер','флик','советЗлодеев','встречаЧасовщика','станция','эпоха','дуэльМорока','изгнание'].includes(p.crystalStage)?p.crystalStage:null,
     crystals:[...new Set(Array.isArray(p.crystals)?p.crystals.filter(i=>Number.isInteger(i)&&i>=0&&i<25):WORLDS.flatMap((w,i)=>p.magic?.[w.id]?[i]:[]))],
     hiddenGems:[...new Set(Array.isArray(p.hiddenGems)?p.hiddenGems.filter(i=>[1,3,5,9,13,18,23].includes(i)):[])],
     crystalWorld:Number.isInteger(p.crystalWorld)&&p.crystalWorld>=0&&p.crystalWorld<25?p.crystalWorld:0,
     crystalContact:!!p.crystalContact,
     officeOpen:!!p.officeOpen,
     chaseWon:!!p.chaseWon,laserEnding:!!p.laserEnding,flikSeen:!!p.flikSeen,
+    timeStep:Number.isInteger(p.timeStep)?Math.max(0,Math.min(24,p.timeStep)):0,timeWon:!!p.timeWon,
     chapterJungle: !!p.chapterJungle,
     jungleStage: ['door','arena'].includes(p.jungleStage) ? p.jungleStage : null,
     chapterSpace: !!p.chapterSpace,                                // пролог тоже один раз
@@ -5044,6 +5047,10 @@ function войтиВЗал(){
     меткаПрохода((i+1)+'. '+мирыКристаллов[i]+(готов?' ✓':''),x,5.75,z);
     поход.двери.push({x,z,i});
   }
+  if(save.flikSeen){
+    поход.времяПортал=кольцоПрохода(world,0,2.42,9,0xf0cb67);
+    меткаПрохода('Машина времени',0,5.55,9);
+  }
   const лазер=propMesh(world,new THREE.CylinderGeometry(.65,1.16,3.7,12),metalM(0x4f667e),0,2,-4.5);лазер.rotation.x=1;
   for(let i=0;i<7;i++)propMesh(world,new THREE.SphereGeometry(.18,10,8),emisM(i<save.hiddenGems.length?0x5df2df:0x455169,.8),-1.5+i*.5,.6,-3.5);
   if(save.officeOpen){
@@ -5130,9 +5137,21 @@ function войтиВМирКристалла(i){
   меткаПрохода('Этаж порталов',а.выход.position.x,а.выход.position.y+3.1,а.выход.position.z);
   updateHud();
 }
+function войтиВПродолжениеВремени(){
+  if(save.timeWon&&save.timeStep===24)save.timeStep=0;
+  if(save.timeStep>0){станцияВремени();return;}
+  save.crystalStage='советЗлодеев';saveNow();
+  запуститьМультик('советЗлодеев',начатьЧастьВремени);
+}
 function послеПобеды(){
   if(!save.crystalStage)save.crystalStage='замысел';
   if(save.crystalStage==='флик'||(save.crystalStage==='зал'&&save.laserEnding&&!save.flikSeen))начатьПродолжениеФлика();
+  else if(save.crystalStage==='советЗлодеев')запуститьМультик('советЗлодеев',начатьЧастьВремени);
+  else if(save.crystalStage==='встречаЧасовщика')начатьЧастьВремени();
+  else if(save.crystalStage==='станция')станцияВремени();
+  else if(save.crystalStage==='эпоха')начатьЭтапВремени();
+  else if(save.crystalStage==='дуэльМорока'){начатьЭтапВремени(true);начатьБойСМороком(поход);}
+  else if(save.crystalStage==='изгнание')показатьИзгнание();
   else if(save.crystalStage==='зал')войтиВЗал();
   else if(save.crystalStage==='погоня')начатьПогоню();
   else if(save.crystalStage==='мегалазер')начатьМегалазер();
@@ -5142,6 +5161,7 @@ function послеПобеды(){
 }
 function тикКристаллов(dt){
   const а=поход;а.время+=dt;
+  if(а.тип==='эпоха'||а.тип==='станция'){тикЭпохи(а,dt);return;}
   if(а.тип==='зал'||(а.тип==='мир'&&а.мир>=WORLDS.length)){
     const предел=а.тип==='зал'?31:82,r=Math.hypot(player.x,player.z);
     if(r>предел){player.x*=предел/r;player.z*=предел/r;player.mesh.position.x=player.x;player.mesh.position.z=player.z;}
@@ -5158,6 +5178,7 @@ function тикКристаллов(dt){
     return;
   }
   if(а.тип==='зал'){
+    if(а.времяПортал&&близко(а.времяПортал.position,2)){войтиВПродолжениеВремени();return;}
     if(save.crystals.length>=23&&!save.officeOpen){начатьСигнал('предупреждение');return;}
     if(а.ангар&&близко(а.ангар.position,2)){начатьПогоню();return;}
     if(а.кабинет&&близко(а.кабинет.position,2)){войтиВКабинет();return;}
@@ -6834,6 +6855,7 @@ function poundLand() {
     if (d > 7.5) continue;
     hurtEnemy(e, 3, dx/(d||1), dz/(d||1)); got++;
   }
+  попаданиеВЭпохе(7.5);
   hitBoss(3, 7.5);
   hitMinion(3, 7.5);
   if (iceLid && !iceLid.broken && Math.hypot(iceLid.x-player.x, iceLid.z-player.z) < iceLid.r + 0.6)
@@ -7705,7 +7727,7 @@ function releaseCharge() {
 function doHit(dmg, radius, color, name) {
   player.atkT = 0.32;
   if (WORLDS[worldIdx].id === 'ocean') { dmg = Math.max(1, Math.round(dmg * 0.6)); radius *= 0.8; }  // 🌊 вода гасит удар
-  const поБоссу = hitBoss(dmg, radius) || hitMinion(dmg, radius);
+  const поБоссу = попаданиеВЭпохе(radius) || hitBoss(dmg, radius) || hitMinion(dmg, radius);
   const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
   let got = 0;
   for (const e of enemies) {
@@ -8661,6 +8683,7 @@ function loseGame() {
    HUD, СООБЩЕНИЯ
    ========================================================================= */
 function updateHud() {
+  if(поход?.тип==='станция'||поход?.тип==='эпоха'){инфоВремени();return;}
   if(поход){
     $('worldCard').textContent=поход.тип==='дом'?'Дом друзей':поход.тип==='зал'?'Этаж порталов':поход.тип==='кабинет'?'Кабинет Морока':мирыКристаллов[поход.мир];
     $('taskCard').textContent=поход.тип==='дом'?'Принеси зарядку с полки':поход.тип==='зал'?(поход.ангар?'Золотой портал · космическая погоня':save.officeOpen?'Фиолетовый портал ведёт в кабинет Морока':'Войди в портал мира'):поход.тип==='кабинет'?'Пройди за стол к золотому кольцу · начать погоню':save.crystals.includes(поход.мир)?'Кристалл мира найден':'Найди кристалл мира';
@@ -8874,6 +8897,9 @@ function buildDiffs() {
   });
 }
 function refreshMenu() {
+  $('timeChapterBtn').classList.toggle('hidden',!save.flikSeen);
+  document.querySelector('[data-kino="встречаЧасовщика"]').classList.toggle('hidden',!save.flikSeen);
+  document.querySelector('[data-kino="изгнание"]').classList.toggle('hidden',!save.timeWon);
   for(const id of ['мегалазер','флик'])document.querySelector('[data-kino="'+id+'"]').classList.toggle('hidden',!save.laserEnding);
   $('slotNum').textContent = slotIdx + 1;
   $('continueBtn').textContent=save.postFinal?'💎 ПРОДОЛЖИТЬ ПОСЛЕ ФИНАЛА':'▶ ПРОДОЛЖИТЬ';
@@ -9721,7 +9747,7 @@ function начатьМегалазер(){
 }
 function начатьПродолжениеФлика(){
   save.crystalStage='флик';saveNow();refreshMenu();
-  запуститьМультик('флик',()=>{save.flikSeen=true;войтиВЗал();refreshMenu();});
+  запуститьМультик('флик',()=>{save.flikSeen=true;начатьЧастьВремени();refreshMenu();});
 }
 МУЛЬТИКИ.мегалазер={
   музыка:'space',
@@ -9791,6 +9817,20 @@ function светВоДворе(с,k){
   с.солнце.material.opacity=1-k;
 }
 
+const советУОбломка=[
+    фраза('Флик','Ты самый безнадёжный владыка хаоса из всех владык хаоса, что я повидал в других измерениях!',
+      ()=>камера(.3,3.1,.5,-1.45,2.75,-3.25)),
+    {длит:3,реплика:['Флик','Ты потерял компоненты. Ты потерял кристаллы. Но твой корабль смог освободить меня, так что я проявлю уважение.'],
+      тик(с,t){с.флик.position.y=2.8+.25*Math.sin(t*2)*Math.exp(-t*.32);},кам(){камера(.5,3.7,4.7,.1,3.1,-2.5);}},
+    фраза('👑 Морок','Великий Флик, у меня есть план, как остановить человечка и Блика. Но нам нужно время.',
+      ()=>камера(-.15,3.95,4.8,1.9,4.2,-1.7)),
+    фраза('👑 Морок','И я даже приобрёл нам помощника. Послушай…',()=>камера(1,3.6,6,.4,3.1,-3)),
+    {длит:4.8,нач(с){с.часовщик=часовщик();world.add(с.часовщик);с.часовщик.position.set(0,0,-9);
+        с.тик=-1;},тик(с,t){с.часовщик.position.z=-9+сглаж(t/3.8)*6.3;с.часовщик.userData.стрелка.rotation.z=-t*2;
+        if(Math.floor(t*2)!==с.тик){с.тик=Math.floor(t*2);tone(с.тик%2?710:530,'triangle',.07,.12);}},
+      кам(с,t){камера(.35,2.9,2.6-сглаж(t/4)*.9,0,2.4,с.часовщик.position.z);}},
+    фраза('Часовщик','Время? Этим займусь я.',()=>камера(.35,2.6,1.6,0,2.65,-2.7))
+];
 МУЛЬТИКИ.флик={
   музыка:'jungle',
   собрать(с){
@@ -9864,10 +9904,420 @@ function светВоДворе(с,k){
         scene.background.setHex(0x292d41);scene.fog.color.copy(scene.background);hemi.intensity=1;sun.intensity=.8;},
       тик(с,t){с.морок.position.set(2,.16*Math.sin(t*2),-11+3.25*t);киноЛицом(с.морок,-.5,3);},
       кам(с,t){камера(-3.2,3.1,4-t*.4,1,3.1,-6);}},
-    фраза('👑 Морок','Значит, это ты сидел в трюме. Твой брат уже заметил, что ты выбрался.',()=>камера(-.15,3.95,4.8,1.9,4.2,-1.7)),
-    фраза('Флик','Пусть заметит. Подойди, Морок. У меня есть план. Только говори тише…',()=>камера(.4,3.4,.5,-1.4,2.85,-3.25)),
-    {длит:3.5,тик(с,t){с.флик.position.x=-1.5+сглаж(t/2.5)*2;с.флик.position.y=2.8+сглаж(t/2.5)*1.2;с.флик.position.z=-3.25+сглаж(t/2.5)*1.55;
-        if(t>2.3&&!с.занавес){с.занавес=true;киноЗатемнить('#080a13',1);}},кам(с,t){камера(1+t*.6,3,3+t*2.3,.7,3.5,-2);}}
+    ...советУОбломка
+  ]
+};
+
+МУЛЬТИКИ.советЗлодеев={
+  музыка:'lair',
+  собрать(с){
+    applyWorldLook('lair');с.пещера=new THREE.Group();world.add(с.пещера);пещераФлика(с);
+    с.обломок.position.set(0,.95,-5);с.обломок.rotation.set(.8,1.2,.65);
+    с.флик.visible=с.морок.visible=true;с.флик.position.set(-1.5,2.8,-3.25);с.флик.userData.резетШлейф();
+    с.морок.position.set(2,.05,-1.7);киноЛицом(с.морок,-.5,3);
+  },
+  всегда(с,dt,к){киноБликТик(с.флик,dt);киноМорокТик(с.морок,к.всего,.25);},
+  кадры:советУОбломка
+};
+
+const эпохиВремени=[
+  {имя:'Мезозой',фон:'jungle',земля:0x769251,акцент:0xffbb65,находка:'три кусочка янтаря',этапы:['Янтарная долина','Камни над горячим ключом','Гнёзда у вулкана','Тропа длинношеев','Часовщик среди динозавров']},
+  {имя:'Средневековье',фон:'ruins',земля:0x84956e,акцент:0x86bcff,находка:'три печати герольда',этапы:['Печати герольда','Разводной мост','Ворота крепости','Дорога в цитадель','Рыцарь маятника']},
+  {имя:'Древний Китай',фон:'forest',земля:0x879c71,акцент:0xff8e58,находка:'три кусочка нефрита',этапы:['Нефритовый сад','Камни лотоса','Барабаны у пагоды','Фонари над дорогой','Медный дракон']},
+  {имя:'Дикий Запад',фон:'desert',земля:0xc88955,акцент:0xffcf70,находка:'три самородка',этапы:['Старательский ручей','Шпалы над ущельем','Старая шахта','Почтовый тракт','Заводной шериф']},
+  {имя:'Будущее',фон:'space',земля:0x404f6b,акцент:0x6aefef,находка:'три энергоячейки',этапы:['Верфь звездолётов','Орбитальные платформы','Реакторный отсек','Посадочные огни','Последний час']}
+];
+
+function циферблат(g,x,y,z,r){
+  const brass=metalM(0xeeb84e,.34);
+  const dial=propMesh(g,new THREE.CylinderGeometry(r,r,.14,32),brass,x,y,z);dial.rotation.x=Math.PI/2;
+  propMesh(g,new THREE.TorusGeometry(r,.085*r,8,36),emisM(0xffca52,.45),x,y,z+.1);
+  for(let i=0;i<12;i++){
+    const a=i*Math.PI/6;
+    брус(g,x+Math.sin(a)*r*.81,y+Math.cos(a)*r*.81,z+.11,.05*r,.15*r,.04,0x714128).rotation.z=-a;
+  }
+  const ось=new THREE.Group();g.add(ось);ось.position.set(x,y,z+.17);
+  брус(ось,0,r*.29,0,.075*r,r*.63,.045,0x352d36);
+  брус(g,x-r*.19,y+r*.10,z+.18,.46*r,.1*r,.05,0x63372d).rotation.z=-.48;
+  return ось;
+}
+function часовщик(){
+  const g=new THREE.Group(),золото=metalM(0xe9aa33,.43),свет=metalM(0xffda78,.42);
+  const шар=(x,y,z,sx,sy,sz,m)=>{const o=propMesh(g,new THREE.SphereGeometry(1,20,14),m,x,y,z);o.scale.set(sx,sy,sz);return o;};
+  шар(0,2.15,0,.97,1.05,.57,золото);
+  for(const i of [-1,1]){
+    шар(i*.92,2.58,0,.46,.42,.5,свет);шар(i*1.03,1.93,.08,.27,.53,.31,золото);
+    шар(i*1.04,1.47,.16,.29,.25,.31,свет);шар(i*.44,.8,0,.35,.69,.34,золото);шар(i*.44,.22,.16,.4,.23,.52,свет);
+  }
+  const голова=шар(0,3.52,0,.65,.67,.59,золото);g.userData.шлем=голова;шар(0,3.49,.46,.54,.28,.18,plastic(0x34232d));
+  for(const i of [-1,1])шар(i*.21,3.52,.62,.098,.058,.045,emisM(0x7ff7f1,1.4));
+  propMesh(g,new THREE.ConeGeometry(.27,.44,8),свет,0,4.24,0);
+  g.userData.стрелка=циферблат(g,0,2.2,.59,.56);return g;
+}
+function динозавр(цвет=0x528a63){
+  const g=new THREE.Group(),кожа=plastic(цвет,.83),пузо=plastic(0xcbb876,.85);
+  function часть(x,y,z,sx,sy,sz,m=кожа){
+    const o=propMesh(g,new THREE.SphereGeometry(1,14,10),m,x,y,z);o.scale.set(sx,sy,sz);return o;
+  }
+  часть(0,1.65,0,.94,.88,1.85);часть(0,2.5,1.28,.48,1.36,.55).rotation.x=.36;
+  часть(0,3.73,1.78,.54,.46,.7);часть(0,3.52,2,.44,.24,.55,пузо);
+  for(const i of [-1,1]){часть(i*.43,3.83,1.99,.095,.1,.095,plastic(0x272d2d));
+    for(const z of [-.9,.8])часть(i*.57,.8,z,.27,.8,.34);}
+  часть(0,1.46,-2,.44,.42,1.62).rotation.x=.18;return g;
+}
+function временнойПузырь(r){
+  const g=new THREE.Group();
+  propMesh(g,new THREE.SphereGeometry(r,32,24),new THREE.MeshPhysicalMaterial({color:0x80cddc,emissive:0x39678b,emissiveIntensity:.28,transparent:true,opacity:.22,depthWrite:false,roughness:.17,metalness:.22}),0,0,0);
+  for(const угол of [.42,-.9]){
+    const кольцо=propMesh(g,new THREE.TorusGeometry(r,.026*r,6,64),emisM(0x9fe5ef,.8),0,0,0);
+    кольцо.rotation.set(.37,угол,угол*.5);
+  }
+  return g;
+}
+function машинаВремени(g){
+  const m=new THREE.Group();g.add(m);
+  propMesh(m,new THREE.CylinderGeometry(4.4,4.9,.55,32),metalM(0x586077,.5),0,.03,0);
+  for(const i of [-1,1]){
+    брус(m,i*3.25,2.1,0,.6,4.1,1.3,0x65738a);
+    const coil=propMesh(m,new THREE.CylinderGeometry(.64,.64,2.6,12),metalM(0xaa8050),i*3.25,2.8,0);
+    for(let j=0;j<5;j++)propMesh(coil,new THREE.TorusGeometry(.65,.07,6,18),emisM(0x80ece2,.75),0,j*.46-.9,0).rotation.x=Math.PI/2;
+  }
+  кольцоПрохода(m,0,2.82,0,0xafedf1);
+  const пузырь=временнойПузырь(1.65);m.add(пузырь);пузырь.position.y=2.2;
+  m.userData.стрелка=циферблат(m,0,5.9,0,.8);return m;
+}
+function декорацииЭпохи(g,e,этап){
+  const д=эпохиВремени[e];
+  брус(g,0,-.51,0,96,1,110,д.земля);
+  const модели=[];
+  for(const знак of [-1,1]){
+    for(let i=0;i<3;i++){
+      const x=знак*(12+(i+этап)%3*2),z=14-i*17;
+      const m=new THREE.Group();m.position.set(x,0,z);g.add(m);
+      if(e===0){
+        junglePalm(m,знак*1.3,-3,.9+(i%2)*.4);const d=динозавр(i===1?0x789e74:0x52856a);m.add(d);d.rotation.y=-знак*(.9+i*.2);d.scale.setScalar(1+i*.15);модели.push(d);
+      }else if(e===1){
+        propMesh(m,new THREE.CylinderGeometry(2.6,2.9,6,12),envSurface('masonry',0xa2a39d,2),0,3,0);
+        propMesh(m,new THREE.ConeGeometry(3.18,3.5,12),plastic(0x647e98),0,7.7,0);брус(m,0,4.5,2.51,.53,1.4,.18,0x33434f);
+        брус(m,0,9.5,0,.13,1.4,.13,0xaf8659);брус(m,.65,9.9,0,1.25,.6,.09,0xae4f43);
+      }else if(e===2){
+        for(let j=0;j<3;j++){
+          const w=4.9-j*.95;брус(m,0,j*2.2+1,0,w,2,w,0xac4939);
+          const roof=propMesh(m,new THREE.ConeGeometry(w*.98,1.65,4),plastic(0x355e58),0,j*2.2+2.05,0);roof.rotation.y=Math.PI/4;
+        }
+        for(const k of [-1,1])propMesh(m,new THREE.SphereGeometry(.47,12,8),emisM(0xf3844e,.45),k*2.45,1.6,2);
+      }else if(e===3){
+        брус(m,0,2,0,5,4,4,0xab7350);брус(m,0,4.3,1.8,5.6,1.15,.5,0xd4a36f);брус(m,0,1.1,2.03,1.2,2.2,.1,0x5e4336);
+        for(const k of [-1,1]){брус(m,k*1.55,2.2,2.05,.95,.96,.12,0x6d9292);брус(m,k*2.3,1.3,3.12,.2,2.6,.2,0x674e3d);}
+        брус(m,0,2.85,2.9,5.7,.25,2.2,0xc29168);
+        const кактус=plastic(0x4d8060);for(const [cx,cy,h] of [[4.1,1.55,3.1],[4.65,1.6,1.4]])propMesh(m,new THREE.CapsuleGeometry(.29,h,4,8),кактус,cx,cy,-1);
+        брус(m,4.4,1.29,-1,.75,.42,.42,0x4d8060);
+      }else{
+        const борт=корабльХаоса();m.add(борт);борт.rotation.y=знак*.9;борт.position.y=5+i*1.7;борт.scale.setScalar(.9);модели.push(борт);
+        propMesh(m,new THREE.CylinderGeometry(2.9,3.7,1.2,12),metalM(0x69748a,.48),0,.6,0);
+        propMesh(m,new THREE.TorusGeometry(2.85,.13,6,36),emisM(0x76e6fa,1),0,1.26,0).rotation.x=Math.PI/2;
+      }
+    }
+  }
+  return модели;
+}
+
+function начатьЧастьВремени(){
+  save.crystalStage='встречаЧасовщика';saveNow();
+  запуститьМультик('встречаЧасовщика',станцияВремени);
+}
+function станцияВремени(){
+  save.crystalStage='станция';saveNow();
+  свояСцена('станция',-1,'space',0,11,Math.PI);
+  брус(world,0,-.52,1,48,1,46,0x536078);
+  поход.машина=машинаВремени(world);меткаПрохода('Машина времени',0,7.45,0);
+  поход.выход=кольцоПрохода(world,-10,2.42,8,0x80bbab);меткаПрохода('Этаж порталов',-10,5.45,8);
+  ДРУЗЬЯ.forEach((д,i)=>киноЧеловек(д.цвет,д.костюм,д.шляпа,5.2+i*1.4,2+i%2,-.8));
+  updateHud();hint('Подойди к светящемуся кругу машины времени.');
+}
+function тропаЭпохи(а){
+  const e=а.эра,шаг=а.шаг;
+  // Дорога связывает задания в направлении от точки появления к пузырю.
+  const покрытие=[0x927e59,0xb3aa91,0xc1aa82,0xdca36f,0x596b7e][e];
+  брус(world,0,-.043,0,10,.09,45,покрытие);
+  for(const sign of [-1,1])for(let i=0;i<11;i++){
+    const z=20-i*4,x=sign*(5.7+Math.sin(i*4.5)*.8);
+    if(e===0){const камень=propMesh(world,new THREE.DodecahedronGeometry(.64,0),plastic(i%2?0x687568:0xa0a081),x,.15,z);камень.scale.set(1.5,.72,1);}
+    if(e===1)брус(world,x,.17,z,1,.34,2.6,0x929186);
+    if(e===2){брус(world,x,1.15,z,.16,2.3,.16,0x6e5b47);if(i%2===0)propMesh(world,new THREE.SphereGeometry(.34,12,8),emisM(0xe69859,.6),x,2.29,z);}
+    if(e===3)брус(world,x,.64,z,.21,1.28,.21,0x856444);
+    if(e===4)брус(world,x,.09,z,.17,.16,2.1,0x83e4e8);
+  }
+  if(шаг===1){
+    const цвет=[0x7fbbb2,0x74a8bf,0x70a799,0x825d4c,0x303956][e];
+    for(let i=0;i<3;i++){
+      const x=[-3.4,3.2,0][i]*(e%2?-1:1);
+      const пятно=propMesh(world,new THREE.CylinderGeometry(3.35,3.35,.07,28),plastic(цвет,.4),x,.05,7-i*8);пятно.scale.z=.85;
+    }
+  }
+  if(e===0&&шаг===2){
+    const гора=propMesh(world,new THREE.ConeGeometry(7,12,12,1,true),plastic(0x706055),-15,5,-24);
+    const край=propMesh(world,new THREE.TorusGeometry(1.25,.24,8,20),emisM(0xff814f,.8),гора.position.x,10,-24);край.rotation.x=Math.PI/2;
+  }
+  if(e===3&&шаг===1)for(let i=0;i<13;i++)брус(world,0,.085,16-i*2.5,7,.14,.38,0x815d45);
+  if(e===4&&шаг===2)for(const x of [-8,8]){
+    propMesh(world,new THREE.CylinderGeometry(1.05,1.05,3.8,16),emisM(0x74dedc,.65),x,2,0);
+    for(let j=0;j<4;j++)propMesh(world,new THREE.TorusGeometry(1.15,.13,8,24),metalM(0xb9cbd0),x,.7+j,0).rotation.x=Math.PI/2;
+  }
+}
+
+function заданиеЭпохи(а){
+  if(а.бой){
+    if(а.финалМорока)return 'Ударами столкни Морока в разлом';
+    return а.уязвим?'Подбеги и ударь, пока он восстанавливается':'Перепрыгни волну и дождись, когда соперник откроется';
+  }
+  return ['Собери '+эпохиВремени[а.эра].находка,'Запрыгни на три светящиеся платформы','Ударь по трём замкам у дороги','Проведи друга через три маяка: оставайся рядом'][а.шаг];
+}
+function инфоВремени(){
+  if(поход.тип==='станция'){
+    $('worldCard').textContent='Машина времени';
+    $('taskCard').textContent='Следующая остановка · '+эпохиВремени[Math.floor(save.timeStep/5)].имя;
+    $('symbolCard').classList.add('hidden');
+  }else{
+    const а=поход,д=эпохиВремени[а.эра];
+    $('worldCard').textContent=д.имя+' · '+(а.шаг+1)+'/5 · '+д.этапы[а.шаг];
+    $('taskCard').textContent=а.портал?.visible?'Войди в открытый пузырь времени':заданиеЭпохи(а);
+    $('symbolCard').classList.remove('hidden');
+    $('symbolCard').textContent=а.бой?а.имя+' · '+а.силы+' / '+а.макс:(['Находки','Платформы','Замки','Маяки'][а.шаг]+' · '+(а.собрано||0)+' / 3');
+  }
+  const d=diff();$('hearts').textContent=d.harm==='damage'?'❤️'.repeat(Math.max(0,hearts)):d.harm==='none'?'😊':'🙂';
+}
+function начатьЭтапВремени(финальныйПоединок=false){
+  const n=save.timeStep,e=Math.floor(n/5),шаг=n%5,д=эпохиВремени[e];
+  save.crystalStage=финальныйПоединок?'дуэльМорока':'эпоха';saveNow();
+  свояСцена('эпоха',-1,д.фон,0,14,Math.PI);
+  const а=поход;Object.assign(а,{эра:e,шаг,бой:шаг===4,собрано:0,точки:[],уязвим:false,остыл:0});
+  lastPoint={x:0,z:14};hearts=diff().hearts||3;
+  а.модели=декорацииЭпохи(world,e,шаг);тропаЭпохи(а);
+  if(e===4)starfield();
+  for(const sign of [-1,1]){addSolid(sign*12,0,.45,24,20);addSolid(0,sign*23,12,.45,20);}
+  if(а.бой)аренаЭпохи(а);
+  else{
+    а.портал=временнойПузырь(2.15);а.портал.position.set(0,2,-16.5);world.add(а.портал);а.портал.visible=false;
+    for(let i=0;i<3;i++){
+      const x=[-3.4,3.2,0][i]*(e%2?-1:1),z=7-i*8;
+      const g=new THREE.Group();world.add(g);g.position.set(x,0,z);
+      const mat=emisM(д.акцент,.55);
+      if(шаг===0){
+        const формы=[()=>new THREE.DodecahedronGeometry(.78),()=>new THREE.CylinderGeometry(.78,.78,.4,10),
+          ()=>new THREE.TorusGeometry(.56,.24,8,22),()=>new THREE.IcosahedronGeometry(.75),()=>new THREE.CylinderGeometry(.47,.47,1.25,12)];
+        const находка=propMesh(g,формы[e](),mat,0,1.2,0);
+        находка.rotation.z=.33;
+      }else if(шаг===1){
+        const h=1.2+i*.75;propMesh(g,new THREE.CylinderGeometry(2,2.25,h,10),metalM(д.земля,.7),0,h/2,0);
+        propMesh(g,new THREE.TorusGeometry(1.55,.09,8,28),mat,0,h+.035,0).rotation.x=Math.PI/2;addDisc(x,z,2,h);g.userData.высота=h;
+      }else if(шаг===2){
+        брус(g,0,.7,0,2,1.4,1.05,0x615665);propMesh(g,new THREE.TorusGeometry(.5,.14,8,24),metalM(0xd9b580),0,1.58,0);
+        брус(g,0,.95,.58,.8,.61,.14,д.акцент);
+      }else{брус(g,0,.8,0,.22,1.6,.22,0x715b45);propMesh(g,new THREE.SphereGeometry(.43,12,8),mat,0,1.72,0);}
+      а.точки.push(g);
+    }
+    if(шаг===3){const друг=ДРУЗЬЯ[e%3];а.друг=киноЧеловек(друг.цвет,друг.костюм,друг.шляпа,1.4,14,Math.PI);}
+    if(шаг===0||шаг===2){
+      а.ловушка=временнойПузырь(1.15);world.add(а.ловушка);а.ловушка.position.set(0,1,-1);
+    }
+  }
+  if(д.фон==='jungle'&&!а.бой)startTheme('forest');
+  updateHud();bigMsg(д.имя+' · '+д.этапы[шаг],2,'#ffdf8a');hint(заданиеЭпохи(а));
+}
+function аренаЭпохи(а){
+  const e=а.эра;
+  а.имя=['Часовщик','Рыцарь маятника','Медный дракон','Заводной шериф','Часовщик'][e];
+  if(e===0||e===4)а.враг=часовщик();
+  else if(e===2){а.враг=динозавр(0xb7804a);for(const i of [-1,1])propMesh(а.враг,new THREE.ConeGeometry(.17,.89,6),metalM(0xe3b55e),i*.36,4.33,1.56);}
+  else {а.враг=makeHero(e===1?0x657a99:0xa37445,e===1?'armor':'jumpsuit',e===1?'none':'straw');а.враг.scale.setScalar(1.8);
+    if(e===1)propMesh(а.враг,new THREE.SphereGeometry(.42,14,10),metalM(0x91a0af),0,1.74,0);
+    циферблат(а.враг,0,1.18,.32,.21);}
+  world.add(а.враг);а.враг.position.z=-5;
+  а.макс=а.силы=e===4?4:3;а.цикл=0;
+  а.волна=propMesh(world,new THREE.TorusGeometry(1,.065,8,72),emisM(0xf79c62,1),0,.35,-5);а.волна.rotation.x=Math.PI/2;
+  а.волна.visible=false;
+  а.портал=временнойПузырь(2.15);world.add(а.портал);а.портал.position.set(0,2,-15);а.портал.visible=false;
+  startTheme('bossfight');
+}
+function начатьБойСМороком(а){
+  save.crystalStage='дуэльМорока';saveNow();
+  а.финалМорока=true;а.имя='Морок';а.силы=а.макс=4;а.цикл=0;а.уязвим=true;а.остыл=.5;
+  world.remove(а.враг);а.враг=киноМорок(0,0,-5);а.враг.scale.setScalar(.65);
+  а.разлом=propMesh(world,new THREE.CircleGeometry(3,48),new THREE.MeshBasicMaterial({color:0x151122}),0,.035,-13.2);а.разлом.rotation.x=-Math.PI/2;
+  propMesh(world,new THREE.TorusGeometry(3,.12,8,48),emisM(0xaf69d1,1),0,.08,-13.2).rotation.x=Math.PI/2;
+  а.брат=makeGhost(true);world.add(а.брат);а.брат.position.set(5,3,-8);
+  а.брат.userData.резетШлейф();sfx('boss');hint('Блик задержит Флика. Подойди к Мороку и ударами столкни его в разлом.');updateHud();
+}
+function попаданиеВЭпохе(radius){
+  const а=поход;if(а?.тип!=='эпоха')return false;
+  const near=(p,r)=>Math.hypot(player.x-p.x,player.z-p.z)<=r&&player.y<4;
+  if(!а.бой){
+    if(а.шаг!==2)return false;
+    const цель=а.точки.find(g=>!g.userData.готов&&near(g.position,radius+1));if(!цель)return false;
+    засчитатьВремя(а,цель);return true;
+  }
+  if(а.силы<=0||а.остыл>0||!near(а.враг.position,radius+1.2))return false;
+  if(!а.уязвим){sfx('clang');return true;}
+  а.силы--;а.остыл=.67;hitFlash(а.враг.position.x,2,а.враг.position.z,0xffda85,.9);
+  if(а.финалМорока)а.враг.position.z-=2.1;
+  if(а.силы===0){
+    if(а.финалМорока){а.падение=0;а.волна.visible=false;}
+    else if(а.эра===4){начатьБойСМороком(а);return true;}
+    else{а.враг.visible=а.волна.visible=false;а.портал.visible=true;sfx('portal');}
+  }
+  updateHud();return true;
+}
+function засчитатьВремя(а,g){
+  g.userData.готов=true;а.собрано++;sfx('chime');
+  if(а.шаг===1||а.шаг===3)g.children.at(-1).material=emisM(0x73df90,.6);
+  else g.visible=false;
+  if(а.собрано===3){а.портал.visible=true;sfx('portal');}
+  updateHud();
+}
+function следующийЭтапВремени(){
+  save.timeStep++;if(save.timeStep%5===0)станцияВремени();else начатьЭтапВремени();
+}
+function тикЭпохи(а,dt){
+  const t=а.время,рядом=(p,r)=>Math.hypot(player.x-p.x,player.z-p.z)<r;
+  if(а.тип==='станция'){
+    player.x=Math.max(-22,Math.min(22,player.x));player.z=Math.max(-20,Math.min(21,player.z));
+    а.машина.userData.стрелка.rotation.z=-t;
+    if(рядом(а.выход.position,2)){войтиВЗал();return;}
+    if(а.перелёт===undefined&&рядом(а.машина.position,2.25)){а.перелёт=0;sfx('portal');}
+    if(а.перелёт!==undefined){
+      а.перелёт+=dt;const k=сглаж(а.перелёт/1.15);
+      player.x*=Math.exp(-dt*9);player.z*=Math.exp(-dt*9);player.y=k*2.2;
+      player.mesh.position.set(player.x,player.y,player.z);player.mesh.scale.setScalar(1-.98*k);
+      if(k===1)начатьЭтапВремени();
+    }return;
+  }
+  а.модели.forEach((m,i)=>{if(а.эра===4)m.position.y=5+(i%3)*1.7+Math.sin(t+i)*.6;else m.rotation.y+=Math.cos(t+i)*.18*dt;});
+  if(а.портал.visible){а.портал.rotation.y=t*.7;if(рядом(а.портал.position,2)){следующийЭтапВремени();return;}}
+  if(а.бой){тикСхваткиЭпохи(а,dt);return;}
+  if(а.ловушка){
+    а.ловушка.position.x=6*Math.sin(t*.78);а.ловушка.rotation.y=t;
+    if(рядом(а.ловушка.position,1.45)&&player.y<1.8&&player.hurtT<=0){
+      player.x=0;player.z=12;player.y=.2;player.vy=0;player.hurtT=1;sfx('portal');bigMsg('Пузырь отмотал твой путь!',1.4,'#a6eaf4');}
+  }
+  if(а.друг){
+    const p=а.друг.position,d=Math.hypot(p.x-player.x,p.z-player.z);
+    if(d>1.4)киноИдти(а.друг,player.x,player.z,5.8,dt);else киноШаг(а.друг,dt,0);
+  }
+  for(const g of а.точки){
+    if(g.userData.готов)continue;
+    if(а.шаг===0){g.children[0].rotation.y=t;if(рядом(g.position,1.8))засчитатьВремя(а,g);}
+    else if(а.шаг===1&&рядом(g.position,1.75)&&Math.abs(player.y-g.userData.высота)<.32&&player.vy<=0)засчитатьВремя(а,g);
+    else if(а.шаг===3&&g===а.точки[а.собрано]&&рядом(g.position,2.9)&&Math.hypot(а.друг.position.x-g.position.x,а.друг.position.z-g.position.z)<3.8)засчитатьВремя(а,g);
+  }
+}
+function тикСхваткиЭпохи(а,dt){
+  const p=а.враг.position;а.остыл=Math.max(0,а.остыл-dt);
+  if(а.финалМорока){
+    const angle=а.время*2.8,центр=new THREE.Vector3(5,2.8,-8);
+    а.брат.position.set(центр.x+Math.sin(angle)*1.6,центр.y+.4*Math.cos(angle),центр.z+Math.cos(angle)*1.3);
+    if(!coop){ghost.mesh.position.set(центр.x-Math.sin(angle)*1.6,центр.y-.4*Math.cos(angle),центр.z-Math.cos(angle)*1.3);}
+    else{а.брат.position.set(ghost.mesh.position.x+Math.sin(angle)*1.65,ghost.mesh.position.y+.2,ghost.mesh.position.z+Math.cos(angle)*1.65);}
+    киноБликТик(а.брат,dt,ghost.mesh.position);киноМорокТик(а.враг,а.время,.65);
+  }
+  if(а.силы<=0){
+    if(а.финалМорока){
+      а.падение+=dt;p.y-=dt*3.3;а.враг.rotation.z+=dt*1.7;
+      if(а.падение>1.3){save.crystalStage='изгнание';saveNow();показатьИзгнание();}
+    }return;
+  }
+  const прежнийЦикл=а.цикл;а.цикл=(а.цикл+dt)%5.8;
+  if(а.эра===4&&!а.финалМорока&&а.цикл<прежнийЦикл){
+    puff(p.x,1.9,p.z,0xe9c16a,15);p.x=p.x===3?-3:3;а.враг.rotation.y=Math.atan2(player.x-p.x,player.z-p.z);
+    sfx('portal');puff(p.x,1.9,p.z,0xa6ebf6,15);
+  }
+  const открыт=а.финалМорока||а.цикл>=2.45;
+  if(открыт!==а.уязвим){а.уязвим=открыт;updateHud();}
+  const фаза=а.цикл-1;а.волна.visible=фаза>=0&&фаза<1.5;
+  if(а.волна.visible){
+    const r=1+фаза*8.3;а.волна.position.set(p.x,.36,p.z);а.волна.scale.set(r,r,1);
+    if(Math.abs(Math.hypot(player.x-p.x,player.z-p.z)-r)<.72&&player.y<1.05)hurtPlayer(1,{x:p.x,z:p.z});
+  }
+  if(!а.финалМорока){
+    а.враг.rotation.y=Math.atan2(player.x-p.x,player.z-p.z);
+    if(а.враг.userData.стрелка)а.враг.userData.стрелка.rotation.z-=dt*(открыт?1:7);
+    а.враг.rotation.x=открыт?.13:0;
+  }
+}
+
+function киноКомандаВремени(){
+  const герои=[киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,-2,2,0),
+    ...ДРУЗЬЯ.map((д,i)=>киноЧеловек(д.цвет,д.костюм,д.шляпа,[-3.8,.65,2.3][i],[.3,1.1,.2][i],0))];
+  const блик=киноБлик(-.8,2.4,1.4);return {герои,блик};
+}
+МУЛЬТИКИ.встречаЧасовщика={
+  музыка:'space',
+  собрать(с){
+    applyWorldLook('forest');
+    с.двор=new THREE.Group();world.add(с.двор);с.двор.add(киноДомик(0,-8));
+    брус(с.двор,0,-.27,0,65,.54,55,0x8eaa68);киноЗабор(с.двор,13,11);
+    Object.assign(с,киноКомандаВремени());
+    с.станция=new THREE.Group();world.add(с.станция);с.станция.visible=false;
+    брус(с.станция,0,-.3,0,40,.6,35,0x586779);с.машина=машинаВремени(с.станция);с.машина.position.z=-6;
+    с.пузырь=временнойПузырь(2);world.add(с.пузырь);с.пузырь.position.set(0,2,-1);с.пузырь.scale.setScalar(.01);
+    с.живые=[...с.герои,с.блик];с.старт=с.живые.map(o=>o.position.clone());
+  },
+  всегда(с,dt,к){киноБликТик(с.блик,dt);с.пузырь.rotation.y+=dt;с.машина.userData.стрелка.rotation.z=-к.всего;},
+  кадры:[
+    фраза('Друг','У меня часы пошли назад. Блик, у тебя тоже во дворе что-то тикает?',()=>камера(3,2.6,8.4,0,1.55,0)),
+    {длит:4.2,рт:.4,реплика:['💙 Блик','Пузырь времени! Он затягивает всё живое. Держитесь друг за друга!'],
+      нач(){sfx('portal');},тик(с,t){const k=сглаж(t/3.4);с.пузырь.scale.setScalar(.01+2.1*k);
+        с.живые.forEach((o,i)=>{o.position.lerpVectors(с.старт[i],с.пузырь.position,k);o.position.y+=Math.sin(k*Math.PI)*1.3;
+          o.rotation.y=k*(4+i*.2);o.scale.setScalar(1-.99*k);});},
+      кам(с,t){камера(4-t*.2,3.4,9-t*.3,0,1.8,-.4);}},
+    {длит:2,нач(с){applyWorldLook('space');с.двор.visible=с.пузырь.visible=false;с.станция.visible=true;
+        с.живые.forEach((o,i)=>{o.scale.setScalar(1);o.position.copy(с.старт[i]);o.rotation.y=Math.PI;});с.блик.userData.резетШлейф();киноВспышка('#adf4ff',.8,.7);},
+      тик(с,t){с.герои.forEach(h=>h.position.y=(1-сглаж(t/.85))*1.4);},кам(){камера(5,4.2,9,0,2.1,-3);}},
+    фраза('💙 Блик','Смотри, машина времени! Стрелка указывает в мезозой. Там появился первый пузырь.',()=>камера(-3.5,2.8,6,-.3,2.6,-3.1))
+  ]
+};
+function показатьИзгнание(){
+  запуститьМультик('изгнание',()=>{save.timeWon=true;войтиВЗал();refreshMenu();bigMsg('Путешествие во времени завершено!',3.6,'#ffdc84');});
+}
+МУЛЬТИКИ.изгнание={
+  музыка:'space',
+  собрать(с){
+    applyWorldLook('space');с.арена=new THREE.Group();world.add(с.арена);
+    брус(с.арена,0,-.4,0,72,.8,55,0x43546a);
+    с.прошлое=new THREE.Group();world.add(с.прошлое);с.прошлое.visible=false;
+    декорацииЭпохи(с.прошлое,0,2);
+    с.м=киноМорок(-1.1,-1.35,-6);с.м.rotation.z=-.48;с.м.scale.setScalar(.52);
+    propMesh(с.арена,new THREE.CircleGeometry(2.75,48),plastic(0x181525),-1,.02,-6).rotation.x=-Math.PI/2;
+    с.ч=часовщик();world.add(с.ч);с.ч.position.set(2,0,-4);
+    с.ф=makeGhost(true);world.add(с.ф);с.ф.position.set(.2,2.8,0);с.ф.userData.резетШлейф();
+    с.пузырь=временнойПузырь(2.7);world.add(с.пузырь);с.пузырь.position.set(0,2.7,-7);с.пузырь.scale.setScalar(.15);
+    с.злодеи=[с.м,с.ч,с.ф];с.старт=с.злодеи.map(g=>g.position.clone());с.размер=[.52,1,1];
+    Object.assign(с,киноКомандаВремени());с.герои.forEach(o=>o.visible=false);с.блик.visible=false;
+  },
+  всегда(с,dt,к){с.ч.userData.стрелка.rotation.z=-к.всего*2;киноМорокТик(с.м,к.всего,.34);
+    if(с.ф.visible)киноБликТик(с.ф,dt);if(с.блик.visible)киноБликТик(с.блик,dt);с.пузырь.rotation.y+=dt;},
+  кадры:[
+    {длит:4,реплика:['Флик','Нет! Этого не может быть! Только не пространственное изгнание во времени!'],
+      тик(с,t){с.пузырь.scale.setScalar(.15+сглаж(t/2.8)*1.25);},кам(){камера(3,3.6,6,0,2.6,-2);}},
+    {длит:3.5,нач(){sfx('portal');},тик(с,t){const k=сглаж(t/3);
+        с.злодеи.forEach((o,i)=>{o.position.lerpVectors(с.старт[i],с.пузырь.position,k);
+          o.position.x+=Math.sin(k*Math.PI*2)*Math.sin(k*Math.PI)*1.2;o.rotation.z=k*3;o.scale.setScalar(Math.max(.005,1-k)*с.размер[i]);});},
+      кам(с,t){камера(2+t*.5,4.2,7,0,2.7,-5);}},
+    {длит:2.5,нач(с){applyWorldLook('jungle');с.арена.visible=с.пузырь.visible=false;с.прошлое.visible=true;
+        // Большие маски и короткие тела придают малышам узнаваемые пропорции.
+        с.м.scale.set(.31,.22,.31);с.м.userData.mask.scale.setScalar(1.45);
+        с.ч.scale.set(.49,.36,.49);с.ч.userData.шлем.scale.multiplyScalar(1.15);с.ф.scale.setScalar(.48);
+        с.злодеи.forEach(o=>o.rotation.set(0,0,0));с.м.position.set(-.86,0,0);с.ч.position.set(.86,0,0);
+        с.ф.position.set(0,1.3,.35);с.ф.userData.резетШлейф();киноВспышка('#fff3c9',.8,.7);},
+      тик(с,t){const y=(1-сглаж(t/1.25))*2.5;с.м.position.y=с.ч.position.y=y;с.ф.position.y=y+1.32;},
+      кам(){камера(1.3,1.8,5.5,0,1.1,0);}},
+    {длит:4,реплика:['Маленький Морок','Отдай призрака! Я с ним мир захвачу!'],
+      тик(с,t){const k=Math.sin(t*3);с.ф.position.set(k*.47,1.4+.09*Math.cos(t*3),.4);
+        с.м.rotation.z=-.18+.12*k;с.ч.rotation.z=.18+.12*k;киноЛицом(с.м,.2,1.6);киноЛицом(с.ч,-.2,1.6);},
+      кам(с,t){камера(-.9,1.5,4.5-.1*Math.min(t,5),0,1.15,.12);}},
+    фраза('💙 Блик','Не знаю, куда пропали наши злодеи, но я уверен, что мы их ещё долго не увидим.',
+      ()=>камера(-2.6,2.6,5.2,-.9,2,1.2),с=>{applyWorldLook('space');с.прошлое.visible=false;с.арена.visible=true;
+        с.злодеи.forEach(o=>o.visible=false);с.герои.forEach(h=>{h.visible=true;киноЛицом(h,-.8,1.4);});с.блик.visible=true;})
   ]
 };
 
@@ -10380,6 +10830,10 @@ function startGame(idx) {
                : 'WASD или стрелки — идти, Пробел (дважды/трижды) — двойной прыжок и парение, E — удар с зарядом');
 }
 
+$('timeChapterBtn').addEventListener('click',()=>{
+  if(['эпоха','станция','дуэльМорока','изгнание','советЗлодеев','встречаЧасовщика'].includes(save.crystalStage))послеПобеды();
+  else войтиВПродолжениеВремени();
+});
 $('continueBtn').addEventListener('click', () => {
   if(save.postFinal){послеПобеды();return;}
   const мир = save.point ? Math.max(0, WORLDS.findIndex(w => w.id === save.point)) : save.worlds - 1;
@@ -10505,7 +10959,7 @@ function loop(now) {
     }
     updatePlayer(dt);
     if(поход){
-      updateGhost(dt);updateHero2(dt);tickGhost(dt);updateSubs(dt);updateFx(dt);updateSun();updateCamera(dt);
+      updateGhost(dt);updateHero2(dt);updateGhostAttack(dt);tickGhost(dt);updateSubs(dt);updateFx(dt);updateSun();updateCamera(dt);
       тикКристаллов(dt);renderFrame();return;
     }
     stompCheck(dt);
