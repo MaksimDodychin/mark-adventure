@@ -296,7 +296,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "51c6e22e03";</script>
+  <script>window.__APP_VER = "1286641040";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -3283,6 +3283,7 @@ function makeHero(colorHex,suitId,hatId){
   const g=makeHeroBase(colorHex,suitId,hatId),u=g.userData;
   if(!['armor','diver'].includes(suitId)){u.torso.material.map=advCloth();u.torso.material.roughness=.83;}
   const trim=plastic(new THREE.Color(colorHex).multiplyScalar(.52),.82),cream=plastic(0xeee1bc,.8),metal=metalM(0xe4c77b,.35);
+  u.clothes.push(trim,cream);
   const box=(w,h,d,x,y,z,m,parent=g)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x,y,z);parent.add(b);return b;};
   const dot=(r,x,y,z,m,parent=g)=>{const b=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),m);b.position.set(x,y,z);parent.add(b);return b;};
   for(const ex of [-.14,.14])dot(.014,ex-.015,1.637,.392,new THREE.MeshBasicMaterial({color:0xffffff}));
@@ -3365,6 +3366,8 @@ function makeHeroBase(colorHex, suitId, hatId) {
                 : plastic(colorHex, 0.55);
   const pants = plastic(suitId === 'diver' ? colorHex : 0x37415e, 0.75);
   const shoe = plastic(0x1c2030, 0.6);
+  const clothes=[suitMat,pants];
+  const cloth=m=>{clothes.push(m);return m;};
 
   const legs = [];
   for (const ex of [-0.2, 0.2]) {
@@ -3393,7 +3396,7 @@ function makeHeroBase(colorHex, suitId, hatId) {
     belt.position.y = 0.8; g.add(belt);
   }
   if (suitId === 'dress') {                                    // 👗 платье, косички и бантик
-    const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.85, 16, 1, true), plastic(colorHex, 0.6));
+    const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.85, 16, 1, true), cloth(plastic(colorHex, 0.6)));
     skirt.position.y = 0.72; g.add(skirt);
     for (const ex of [-1, 1]) {                              // косички
       const braid = new THREE.Group();
@@ -3409,22 +3412,22 @@ function makeHeroBase(colorHex, suitId, hatId) {
     bow2.position.set(0, 1.9, -0.05); g.add(bow2);
   }
   if (suitId === 'jacket') {                                   // 🧥 куртка: капюшон и меховая опушка
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.13, 10, 20), plastic(0xf1f5f9, 0.9));
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.13, 10, 20), cloth(plastic(0xf1f5f9, 0.9)));
     collar.rotation.x = Math.PI/2; collar.position.y = 1.34; g.add(collar);
     const hood = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10, 0, Math.PI*2, 0, Math.PI*0.55),
-      plastic(colorHex, 0.7));
+      cloth(plastic(colorHex, 0.7)));
     hood.position.set(0, 1.5, -0.16); g.add(hood);
     const zip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.7, 0.05), metalM(0xd7dbe3, 0.3));
     zip.position.set(0, 1.0, 0.3); g.add(zip);
   }
   if (suitId === 'chef') {                                     // 👨‍🍳 поварской китель
-    const apron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.9, 0.1), plastic(0xffffff, 0.85));
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.9, 0.1), cloth(plastic(0xffffff, 0.85)));
     apron.position.set(0, 0.85, 0.3); g.add(apron);
     for (const ex of [-0.12, 0.12]) {
       const btn = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), plastic(0x111827, 0.5));
       btn.position.set(ex, 1.18, 0.32); g.add(btn);
     }
-    const towel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.06), plastic(0xef4444, 0.85));
+    const towel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.06), cloth(plastic(0xef4444, 0.85)));
     towel.position.set(0.34, 0.82, 0.2); g.add(towel);
   }
   if (suitId === 'diver') {                                    // гидрокостюм — баллон за спиной
@@ -3513,7 +3516,7 @@ function makeHeroBase(colorHex, suitId, hatId) {
       inner.position.set(ex*0.26, 1.94, 0.06); g.add(inner);
     }
   }
-  g.userData = { legs, arms, torso, head, propeller };
+  g.userData = { legs, arms, torso, head, propeller, clothes };
   return g;
 }
 
@@ -7175,6 +7178,7 @@ function buildAdventureVista(id) {
 }
 
 function clearWorld() {
+  квантКостюм(true);
   if(поход?.щитБлика){поход.щитБлика.userData.mats?.forEach(m=>m.dispose());поход.рисунокБлика?.dispose();}
   квантВид=false;document.body.classList.remove('quantumView');
   $('quantumBtn').classList.add('hidden');$('quantumBtn').classList.remove('on');$('quantumBtn').setAttribute('aria-pressed','false');$('tornadoBtn').classList.add('hidden');
@@ -10705,21 +10709,43 @@ function квантИнфо(){
  const а=поход;if(а?.тип!=='квантовая')return;
  $('worldCard').textContent='IV · '+КВАНТ_ЭТАПЫ[а.q][0];
  $('taskCard').textContent=save.quantumPreviewDone&&а.q===12?'Найдены 2 из 4 братьев. Поиски продолжаются…':КВАНТ_ЭТАПЫ[а.q][1];
- $('symbolCard').classList.remove('hidden');$('symbolCard').textContent='Братья · '+(save.quantumRik?2:save.quantumGlik?1:0)+' / 4'+(а.дар==='глик'?' · Здесь помогает Глик':а.дар==='рик'?' · Здесь помогает Рик':'')+(а.q===7?' · Ученик '+а.hp+' / 4':а.ящики?' · Замки '+а.собрано+' / 3':'')+(save.quantumInvincible>0?' · ✨ НЕУЯЗВИМОСТЬ '+Math.ceil(save.quantumInvincible)+' с':save.quantumShield?' · 💙 Защита '+save.quantumShield+' / 3':'');
+ $('symbolCard').classList.remove('hidden');$('symbolCard').textContent='Братья · '+(save.quantumRik?2:save.quantumGlik?1:0)+' / 4'+(а.дар==='глик'?' · Квантовый костюм Глика':а.дар==='рик'?' · Квантовый костюм Рика':'')+(а.q===7?' · Ученик '+а.hp+' / 4':а.ящики?' · Замки '+а.собрано+' / 3':'')+(save.quantumInvincible>0?' · ✨ НЕУЯЗВИМОСТЬ '+Math.ceil(save.quantumInvincible)+' с':save.quantumShield?' · 💙 Защита '+save.quantumShield+' / 3':'');
  $('hearts').textContent=diff().harm==='damage'?'❤️'.repeat(Math.max(0,hearts)):diff().harm==='none'?'😊':'🙂';
  $('quantumBtn').classList.toggle('hidden',!save.quantumGlik||а.дар!=='глик');$('tornadoBtn').classList.toggle('hidden',!save.quantumRik||а.дар!=='рик');
 }
+
+// The costume follows the brother assigned to this level; wardrobe choices stay saved.
+function квантКостюм(снять=false){
+ const g=player?.mesh,u=g?.userData;if(!u?.clothes)return;
+ const а=поход,дар=!снять&&а?.тип==='квантовая'?а.дар:null;
+ const брат=дар==='глик'&&save.quantumGlik?'глик':дар==='рик'&&save.quantumRik?'рик':null;
+ if(!брат){
+   if(u.quantumSuit){for(const o of u.quantumSuit.original){o.mat.color.copy(o.color);o.mat.emissive.copy(o.emissive);o.mat.emissiveIntensity=o.intensity;}delete u.quantumSuit;}
+   return;
+ }
+ const актив=брат==='глик'?квантВид:а.торнадоT>0;
+ if(u.quantumSuit?.brother===брат&&u.quantumSuit.active===актив)return;
+ if(!u.quantumSuit)u.quantumSuit={original:[...new Set(u.clothes)].map(mat=>({mat,color:mat.color.clone(),emissive:mat.emissive.clone(),intensity:mat.emissiveIntensity}))};
+ const к=u.quantumSuit;к.brother=брат;к.active=актив;
+ к.original.forEach((o,i)=>{
+   o.mat.color.setHex(брат==='глик'?(i===1?0x2866b3:0x499fed):(i===1?0x7942a1:0xc270dd));
+   o.mat.emissive.setHex(актив?(брат==='глик'?0x45beff:0xd479ff):0x000000);
+   o.mat.emissiveIntensity=актив?1.65:0;
+ });
+}
+
 function квантЗрение(){
  if(state!=='play'||paused||поход?.тип!=='квантовая'||поход.дар!=='глик'||!save.quantumGlik)return;
  квантВид=!квантВид;document.body.classList.toggle('quantumView',квантВид);
  $('quantumBtn').setAttribute('aria-pressed',String(квантВид));$('quantumBtn').classList.toggle('on',квантВид);
  for(const g of поход.тайные)g.visible=квантВид&&!g.userData.разбит;
+ квантКостюм();
  hint(квантВид?'Глик: Теперь видны следы другого измерения!':'Обычное зрение');sfx('chime');
 }
 function квантТорнадо(){
  const а=поход;if(state!=='play'||paused||а?.тип!=='квантовая'||а.дар!=='рик'||!save.quantumRik)return;
  if(а.торнадоКд>0){hint('Рик: Дай мне пару секунд перед следующим вихрем!');return;}
- а.торнадоT=2.4;а.торнадоКд=5;а.вихрь.visible=true;sfx('glide');
+ а.торнадоT=2.4;а.торнадоКд=5;а.вихрь.visible=true;квантКостюм();sfx('glide');
 }
 function квантПират(){
  const g=makeHero(0x8d536d,'tshirt','none');
@@ -10792,7 +10818,7 @@ function этапКванта(n,загрузка=false){
    for(let i=0;i<7;i++){const r=propMesh(а.вихрь,new THREE.TorusGeometry(.7+i*.5,.1,6,32,Math.PI*1.6),emisM(0xd897f5,.6),0,.3+i*.5,0);r.rotation.x=Math.PI/2;r.rotation.z=i*.8;}
  }
  if(а.ящики&&а.собрано===3&&n!==11)а.выход.visible=true;
- квантИнфо();updateCamera(1);bigMsg('Часть IV · '+КВАНТ_ЭТАПЫ[n][0],2,'#9bd6ff');hint(КВАНТ_ЭТАПЫ[n][1]);
+ квантКостюм();квантИнфо();updateCamera(1);bigMsg('Часть IV · '+КВАНТ_ЭТАПЫ[n][0],2,'#9bd6ff');hint(КВАНТ_ЭТАПЫ[n][1]);
 }
 
 function ящикиБлика(а){
@@ -10904,6 +10930,7 @@ function тикКванта(а,dt){
      for(const v of а.враги)if(v.жив&&Math.hypot(player.x-v.g.position.x,player.z-v.g.position.z)<5.2){v.жив=false;v.g.visible=false;puff(v.g.position.x,1,v.g.position.z,0xe7a6ff,12);}}
    $('tornadoBtn').setAttribute('data-cap',а.торнадоКд>0?'РИК · '+Math.ceil(а.торнадоКд)+' с':'РИК · T');
  }
+ квантКостюм();
  if(n===11&&а.собрано===3){а.клетка.visible=false;if(рядом(а.пленный,2.5)){save.quantumRik=true;saveNow();квантРолик('рик','квантРик',()=>этапКванта(12));return;}}
  if(а.выход.visible&&рядом(а.выход,2))следующийКвант();
 }
