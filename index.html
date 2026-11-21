@@ -296,7 +296,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "9c3eb24361";</script>
+  <script>window.__APP_VER = "51c6e22e03";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -7184,6 +7184,7 @@ function clearWorld() {
   if (ghost && ghost.mesh) (ghost.mesh.userData.mats || []).forEach(m => m.dispose());  // 👻 материалы Блика — на каждый мир свои
   while (world.children.length) {
     const o = world.children.pop();
+    if(o.userData.тик&&o.userData.mats)o.userData.mats.forEach(m=>m.dispose());
     o.traverse(n => { if (n.geometry && !n.isSprite) n.geometry.dispose(); });  // геометрия спрайта в r160 ОБЩАЯ
   }
   solids.length = 0; enemies.length = 0; pickups.length = 0; checkpoints.length = 0; arrow = null; discs.length = 0;
@@ -10647,7 +10648,24 @@ const КВАНТ_ЭТАПЫ=[
  ['Пленник жемчужной клетки','Разбей замки вокруг клетки и освободи второго брата.'],
  ['Торнадо Рика','Испытай торнадо: T или 🌪. Одолей пиратов на пути.']
 ];
+
 function квантПризрак(розовый=false){
+ const g=makeGhost(розовый),u=g.userData,mat=u.мат;
+ const цвет=розовый?0xcf72db:0x438af3,свечение=розовый?0xa942c5:0x286bce,край=розовый?0xedacff:0x89caff;
+ mat.color.setHex(цвет);mat.emissive.setHex(свечение);
+ for(const m of u.mats)if(m!==mat&&m.transparent&&m.blending===THREE.AdditiveBlending)m.color?.setHex(край);
+ u.свет.color.setHex(цвет);
+ const compile=mat.onBeforeCompile;
+ mat.onBeforeCompile=function(sh,...args){compile.call(this,sh,...args);sh.uniforms.uCoreC.value.setHex(свечение);sh.uniforms.uRimC.value.setHex(край);};
+ let last=null;u.тик=t=>{const dt=last===null?.016:Math.max(0,Math.min(.05,t-last));last=t;киноБликТик(g,dt);mat.emissiveIntensity=.45;
+  if(mat.userData.sh){mat.userData.sh.uniforms.uRimC.value.setHex(край);mat.userData.sh.uniforms.uCoreC.value.setHex(свечение);}
+  u.свет.intensity=2;
+ };
+ u.резетШлейф();return g;
+}
+function дарУровняКванта(n){return n>=5&&n<=11?'глик':n===12?'рик':null;}
+
+function прежняяФормаМорфа(розовый=false){
  const g=new THREE.Group(),цвет=розовый?0xcf72db:0x438af3;
  const mat=new THREE.MeshStandardMaterial({color:цвет,emissive:цвет,emissiveIntensity:.38,roughness:.35,transparent:true,opacity:.88});
  const body=propMesh(g,new THREE.SphereGeometry(.62,24,16),mat,0,.35,0);body.scale.set(1,1.3,.85);
@@ -10663,7 +10681,7 @@ function квантПризрак(розовый=false){
  g.userData.тик=t=>{tail.rotation.x=.3+Math.sin(t*3)*.18;halo.rotation.z=t*.6;};return g;
 }
 function морфИзКошмара(){
- const g=квантПризрак();g.traverse(o=>{if(o.isMesh&&o.material?.transparent){o.material.color.setHex(0xece9ff);o.material.emissive.setHex(0x615c86);}});
+ const g=прежняяФормаМорфа();g.traverse(o=>{if(o.isMesh&&o.material?.transparent){o.material.color.setHex(0xece9ff);o.material.emissive.setHex(0x615c86);}});
  for(const x of [-.22,.22])propMesh(g,new THREE.SphereGeometry(.09,10,8),emisM(0xff283b,1),x,.66,.66);
  for(let i=0;i<5;i++){const a=i*Math.PI*2/5;propMesh(g,new THREE.ConeGeometry(.13,.5,5),metalM(0x9e9bc2),Math.cos(a)*.43,1.25,Math.sin(a)*.43);}
  g.scale.setScalar(1.7);return g;
@@ -10687,19 +10705,19 @@ function квантИнфо(){
  const а=поход;if(а?.тип!=='квантовая')return;
  $('worldCard').textContent='IV · '+КВАНТ_ЭТАПЫ[а.q][0];
  $('taskCard').textContent=save.quantumPreviewDone&&а.q===12?'Найдены 2 из 4 братьев. Поиски продолжаются…':КВАНТ_ЭТАПЫ[а.q][1];
- $('symbolCard').classList.remove('hidden');$('symbolCard').textContent='Братья · '+(save.quantumRik?2:save.quantumGlik?1:0)+' / 4'+(а.q===7?' · Ученик '+а.hp+' / 4':а.ящики?' · Замки '+а.собрано+' / 3':'')+(save.quantumInvincible>0?' · ✨ НЕУЯЗВИМОСТЬ '+Math.ceil(save.quantumInvincible)+' с':save.quantumShield?' · 💙 Защита '+save.quantumShield+' / 3':'');
+ $('symbolCard').classList.remove('hidden');$('symbolCard').textContent='Братья · '+(save.quantumRik?2:save.quantumGlik?1:0)+' / 4'+(а.дар==='глик'?' · Здесь помогает Глик':а.дар==='рик'?' · Здесь помогает Рик':'')+(а.q===7?' · Ученик '+а.hp+' / 4':а.ящики?' · Замки '+а.собрано+' / 3':'')+(save.quantumInvincible>0?' · ✨ НЕУЯЗВИМОСТЬ '+Math.ceil(save.quantumInvincible)+' с':save.quantumShield?' · 💙 Защита '+save.quantumShield+' / 3':'');
  $('hearts').textContent=diff().harm==='damage'?'❤️'.repeat(Math.max(0,hearts)):diff().harm==='none'?'😊':'🙂';
- $('quantumBtn').classList.toggle('hidden',!save.quantumGlik);$('tornadoBtn').classList.toggle('hidden',!save.quantumRik);
+ $('quantumBtn').classList.toggle('hidden',!save.quantumGlik||а.дар!=='глик');$('tornadoBtn').classList.toggle('hidden',!save.quantumRik||а.дар!=='рик');
 }
 function квантЗрение(){
- if(state!=='play'||paused||поход?.тип!=='квантовая'||!save.quantumGlik)return;
+ if(state!=='play'||paused||поход?.тип!=='квантовая'||поход.дар!=='глик'||!save.quantumGlik)return;
  квантВид=!квантВид;document.body.classList.toggle('quantumView',квантВид);
  $('quantumBtn').setAttribute('aria-pressed',String(квантВид));$('quantumBtn').classList.toggle('on',квантВид);
  for(const g of поход.тайные)g.visible=квантВид&&!g.userData.разбит;
  hint(квантВид?'Глик: Теперь видны следы другого измерения!':'Обычное зрение');sfx('chime');
 }
 function квантТорнадо(){
- const а=поход;if(state!=='play'||paused||а?.тип!=='квантовая'||!save.quantumRik)return;
+ const а=поход;if(state!=='play'||paused||а?.тип!=='квантовая'||а.дар!=='рик'||!save.quantumRik)return;
  if(а.торнадоКд>0){hint('Рик: Дай мне пару секунд перед следующим вихрем!');return;}
  а.торнадоT=2.4;а.торнадоКд=5;а.вихрь.visible=true;sfx('glide');
 }
@@ -10713,7 +10731,7 @@ function этапКванта(n,загрузка=false){
  if(!загрузка||n!==save.quantumStep){save.quantumCheckpoint=0;save.quantumCrates=0;save.quantumBlikCrates=0;}
  save.quantumStep=n;save.quantumStory='игра';save.crystalStage='квантоваяГлава';saveNow();
  const тема=n>=8?'ocean':n>=5?'desert':n>=3?'lair':'forest';свояСцена('квантовая',-1,тема,0,14,Math.PI);
- const а=поход;Object.assign(а,{q:n,маршрут:[],тайные:[],чек:save.quantumCheckpoint||0,собрано:0,торнадоT:0,торнадоКд:0,враги:[]});hearts=diff().hearts||3;
+ const а=поход;Object.assign(а,{q:n,дар:дарУровняКванта(n),маршрут:[],тайные:[],чек:save.quantumCheckpoint||0,собрано:0,торнадоT:0,торнадоКд:0,враги:[]});hearts=diff().hearts||3;
  const шаг=n===2?20:n===1?16:n===4?16:14,count=n===7?1:n===12?4:6,длина=n===0?11.6:n===1?9:n===2?8:10;
  for(let i=0;i<count;i++){
    const x=i===0?0:Math.sin(i*1.5+n)*2.6,z=14-i*шаг,w=n===7?23:11,d=n===7?38:длина;
@@ -10749,8 +10767,8 @@ function этапКванта(n,загрузка=false){
  if(n===4){
    а.страж=рыцарьЦитадели();world.add(а.страж);а.страж.scale.setScalar(2.5);а.стражZ=29;а.разбег=2.8;а.добыча=квантПризрак();world.add(а.добыча);а.добыча.scale.setScalar(.4);setRun(true);startTheme('bossfight');
  }
- if(save.quantumGlik){а.глик=квантПризрак();world.add(а.глик);а.глик.scale.setScalar(.65);}
- if(save.quantumRik){а.рик=квантПризрак(true);world.add(а.рик);а.рик.scale.setScalar(.65);}
+ if(save.quantumGlik&&а.дар==='глик'){а.глик=квантПризрак();world.add(а.глик);а.глик.scale.setScalar(.65);}
+ if(save.quantumRik&&а.дар==='рик'){а.рик=квантПризрак(true);world.add(а.рик);а.рик.scale.setScalar(.65);}
  if([5,10,11].includes(n)){
    а.ящики=[];
    for(let i=0;i<3;i++){
@@ -10769,7 +10787,7 @@ function этапКванта(n,загрузка=false){
  }
  ящикиБлика(а);
  if(n===7)аренаУченикаКванта(а);
- if(save.quantumRik){
+ if(save.quantumRik&&а.дар==='рик'){
    а.вихрь=new THREE.Group();world.add(а.вихрь);а.вихрь.visible=false;
    for(let i=0;i<7;i++){const r=propMesh(а.вихрь,new THREE.TorusGeometry(.7+i*.5,.1,6,32,Math.PI*1.6),emisM(0xd897f5,.6),0,.3+i*.5,0);r.rotation.x=Math.PI/2;r.rotation.z=i*.8;}
  }
@@ -11008,7 +11026,7 @@ function квантЗнакомство(с,рик=false){
  фраза('Человечек','Сокровище умеет разговаривать? Кто ты?',()=>камера(-4,2.7,6,0,1.6,1)),
  фраза('Глик','Я Глик, квантовый призрак из другой вселенной. Ты освободил меня!',()=>камера(4,2.8,4,2,2,-.5)),
  фраза('Глик','Нас четверо братьев. Флик наоткрывал пространственных щелей. Чтобы закрыть их, нужно найти ещё троих.',()=>камера(4,3.3,6,0,1.7,0)),
- фраза('Глик','Моё зрение показывает то, что скрыто между измерениями: ящики, мосты и платформы. Я помогу тебе их увидеть.',()=>камера(3,3,5,1,2,0))
+ фраза('Глик','Моё зрение показывает скрытые ящики, мосты и платформы. На уровнях с моим знаком я буду рядом и дам тебе эту способность.',()=>камера(3,3,5,1,2,0))
  ]
 };
 МУЛЬТИКИ.квантУченики={
@@ -11043,7 +11061,7 @@ function квантЗнакомство(с,рик=false){
  кадры:[
  фраза('Рик','Наконец-то! Я бы и сам выбрался… ещё немного — и разнёс бы всю эту клетку!',()=>камера(4,2.8,5,2,2,0)),
  фраза('Глик','Это мой брат Рик. Он бывает сердитым, зато его вихри очень сильные.',()=>камера(-4,3,6,0,1.7,1)),
- фраза('Рик','Позови меня кнопкой торнадо — закружу врагов! Только дай мне немного передохнуть между вихрями.',()=>камера(4,2.8,5,2,2,0)),
+ фраза('Рик','На уровнях с моим знаком тебе помогу я. Жми торнадо — закружу врагов! Только дай мне передохнуть между вихрями.',()=>камера(4,2.8,5,2,2,0)),
  фраза('Блик','Теперь с нами двое братьев из четырёх. Найдём остальных — и сможем закрыть щели Флика.',()=>камера(-3,3,6,0,2,1))
  ]
 };
