@@ -121,6 +121,15 @@
   #actions { position:fixed; right:14px; bottom:16px; z-index:15; display:flex; flex-direction:column-reverse;
     gap:10px; align-items:center; }
   /* 👥 РАЗДЕЛЁННЫЙ ЭКРАН: у каждого игрока свои кнопки на своей половине */
+  #quantumTint { position:fixed; inset:0; pointer-events:none; z-index:4; background:#42bfff22; opacity:0; transition:opacity .2s; }
+  body.quantumView #quantumTint { opacity:1; }
+  body:has(#menu:not(.hidden)) #quantumTint { display:none; }
+  #quantumBtn, #tornadoBtn { position:fixed; bottom:24px; width:60px; height:60px; }
+  #quantumBtn { right:100px; background:linear-gradient(#b4efff,#397cce); }
+  #tornadoBtn { right:176px; background:linear-gradient(#efc9ff,#9e57ba); }
+  body.split.split-v #quantumBtn { right:calc(50% + 100px); }
+  body.split.split-v #tornadoBtn { right:calc(50% + 176px); }
+  body.split:not(.split-v) #quantumBtn, body.split:not(.split-v) #tornadoBtn { bottom:calc(50% + 24px); }
   #actions2 { position:fixed; right:14px; bottom:16px; z-index:15; display:none; flex-direction:column-reverse;
     gap:10px; align-items:center; }
   body.split #actions2 { display:flex; }
@@ -287,7 +296,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "91248cb34e";</script>
+  <script>window.__APP_VER = "9c3eb24361";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -299,7 +308,7 @@
       <div class="advBrand"><div class="logo">🗺</div><span>Игры Марка · большой путь</span></div>
       <h1>БОЛЬШОЕ<br>ПРИКЛЮЧЕНИЕ</h1>
       <div class="sub"><b>11 миров</b> — от руин замка до логова Морока.<br>Ищи символы, побеждай боссов и путешествуй с Бликом.</div>
-      <div class="advMainActions"><button class="btn" id="continueBtn">▶️ ПРОДОЛЖИТЬ</button><button class="btn hidden" id="timeChapterBtn">⏱ ПУТЕШЕСТВИЕ ВО ВРЕМЕНИ</button><button class="btn" id="startBtn">✨ НОВАЯ ИГРА</button></div>
+      <div class="advMainActions"><button class="btn" id="continueBtn">▶️ ПРОДОЛЖИТЬ</button><button class="btn hidden" id="timeChapterBtn">⏱ ПУТЕШЕСТВИЕ ВО ВРЕМЕНИ</button><button class="btn hidden" id="quantumChapterBtn">🌀 ЧЕТЫРЕ БРАТА · ЧАСТЬ IV</button><button class="btn" id="startBtn">✨ НОВАЯ ИГРА</button></div>
       <div class="advTools">
         <button class="btn small" id="mapBtn">🗺 КАРТА МИРОВ</button>
         <button class="btn alt small" id="wardrobeBtn">👕 ГАРДЕРОБ</button>
@@ -454,6 +463,12 @@
   <button class="btn hidden" data-kino="флик">🔥 Флик на свободе!</button>
   <button class="btn hidden" data-kino="встречаЧасовщика">⏱ Машина времени</button>
   <button class="btn hidden" data-kino="изгнание">🌀 Пространственное изгнание</button>
+  <button class="btn hidden" data-kino="квантПобег">🌀 Побег из прошлого</button>
+  <button class="btn hidden" data-kino="квантЗов">⛰ Блик чувствует разлом</button>
+  <button class="btn hidden" data-kino="квантГлик">💙 Глик и четыре брата</button>
+  <button class="btn hidden" data-kino="квантУченики">👻 Морок отправляет учеников</button>
+  <button class="btn hidden" data-kino="квантРазлом">🌌 Брат за разломом</button>
+  <button class="btn hidden" data-kino="квантРик">🌪 Освобождение Рика</button>
   <button class="btn small" id="киноНазад">← НАЗАД</button>
 </div>
 
@@ -568,7 +583,10 @@
 </div>
 <div id="stick"><div id="knob"></div></div>
 <div id="stick2" class="hidden"><div id="knob2"></div></div>
+<div id="quantumTint" aria-hidden="true"></div>
 <div id="actions" class="hidden">
+  <button class="abtn hidden" id="quantumBtn" title="Зрение Глика (V)" aria-label="Зрение Глика" aria-pressed="false" data-cap="ГЛИК · V">👁</button>
+  <button class="abtn hidden" id="tornadoBtn" title="Торнадо Рика (T)" aria-label="Торнадо Рика" data-cap="РИК · T">🌪</button>
   <button class="abtn" id="atkBtn" title="Удар (E)" data-cap="УДАР · E">👊</button>
   <button class="abtn" id="jumpBtn" title="Прыжок (Пробел)" data-cap="ПРЫЖОК · ␣">⤴</button>
   <button class="abtn" id="runBtn" title="Бег (R или Shift)" data-cap="БЕГ · R">🏃</button>
@@ -804,7 +822,7 @@ function loadSave() {
     titleShown: !!p.titleShown,                                    // заставку показываем один раз
     prologueSeen: !!p.prologueSeen,
     postFinal:!!p.postFinal,
-    crystalStage:['замысел','утро','дом','послание','зал','мир','передача','предупреждение','кабинет','погоня','мегалазер','флик','советЗлодеев','встречаЧасовщика','станция','эпоха','дуэльМорока','изгнание'].includes(p.crystalStage)?p.crystalStage:null,
+    crystalStage:['замысел','утро','дом','послание','зал','мир','передача','предупреждение','кабинет','погоня','мегалазер','флик','советЗлодеев','встречаЧасовщика','станция','эпоха','дуэльМорока','изгнание','квантоваяГлава'].includes(p.crystalStage)?p.crystalStage:null,
     crystals:[...new Set(Array.isArray(p.crystals)?p.crystals.filter(i=>Number.isInteger(i)&&i>=0&&i<25):WORLDS.flatMap((w,i)=>p.magic?.[w.id]?[i]:[]))],
     hiddenGems:[...new Set(Array.isArray(p.hiddenGems)?p.hiddenGems.filter(i=>[1,3,5,9,13,18,23].includes(i)):[])],
     crystalWorld:Number.isInteger(p.crystalWorld)&&p.crystalWorld>=0&&p.crystalWorld<25?p.crystalWorld:0,
@@ -812,6 +830,16 @@ function loadSave() {
     officeOpen:!!p.officeOpen,
     chaseWon:!!p.chaseWon,laserEnding:!!p.laserEnding,flikSeen:!!p.flikSeen,
     timeStep:Number.isInteger(p.timeStep)?Math.max(0,Math.min(24,p.timeStep)):0,timeWon:!!p.timeWon,
+    quantumShield:Number.isInteger(p.quantumShield)?Math.max(0,Math.min(2,p.quantumShield)):0,
+    quantumInvincible:typeof p.quantumInvincible==='number'&&Number.isFinite(p.quantumInvincible)?Math.max(0,Math.min(8,p.quantumInvincible)):0,
+    quantumBlikCrates:Number.isInteger(p.quantumBlikCrates)?p.quantumBlikCrates&7:0,
+    quantumStarted:!!p.quantumStarted,
+    quantumStory:['побег','зов','глик','ученики','разлом','рик','игра'].includes(p.quantumStory)?p.quantumStory:'побег',
+    quantumStep:Number.isInteger(p.quantumStep)?Math.max(0,Math.min(12,p.quantumStep)):0,
+    quantumCheckpoint:Number.isInteger(p.quantumCheckpoint)?Math.max(0,Math.min(16,p.quantumCheckpoint)):0,
+    quantumCrates:Number.isInteger(p.quantumCrates)?p.quantumCrates&7:0,
+    quantumSkills:Number.isInteger(p.quantumSkills)?p.quantumSkills&7:0,
+    quantumGlik:!!(p.quantumGlik||p.quantumRik),quantumRik:!!p.quantumRik,quantumPreviewDone:!!p.quantumPreviewDone,
     chapterJungle: !!p.chapterJungle,
     jungleStage: ['door','arena'].includes(p.jungleStage) ? p.jungleStage : null,
     chapterSpace: !!p.chapterSpace,                                // пролог тоже один раз
@@ -4943,6 +4971,7 @@ const дальниеМиры=[
 const мирыКристаллов=[...WORLDS.map(w=>w.name),...дальниеМиры.map(w=>w[0])];
 const местаТайников=[1,3,5,9,13,18,23];
 let поход=null;
+let квантВид=false;
 function кристаллМира(i,тайный=false){
   const g=new THREE.Group(),цвет=new THREE.Color().setHSL(тайный?.52:(i*.618+.74)%1,.72,.59);
   const грани=4+i%5,ширина=.65+.11*(Math.floor(i/5)%3);
@@ -5048,6 +5077,10 @@ function войтиВЗал(){
     меткаПрохода((i+1)+'. '+мирыКристаллов[i]+(готов?' ✓':''),x,5.75,z);
     поход.двери.push({x,z,i});
   }
+  if(save.timeWon){
+    поход.квантПортал=кольцоПрохода(world,0,2.42,-16,0x79cfff);
+    меткаПрохода('Часть IV · Четыре брата',0,5.55,-16);
+  }
   if(save.flikSeen){
     поход.времяПортал=кольцоПрохода(world,0,2.42,9,0xf0cb67);
     меткаПрохода('Машина времени',0,5.55,9);
@@ -5145,6 +5178,7 @@ function войтиВПродолжениеВремени(){
   запуститьМультик('советЗлодеев',начатьЧастьВремени);
 }
 function послеПобеды(){
+  if(save.crystalStage==='квантоваяГлава'){продолжитьКвантовуюГлаву();return;}
   if(!save.crystalStage)save.crystalStage='замысел';
   if(save.crystalStage==='флик'||(save.crystalStage==='зал'&&save.laserEnding&&!save.flikSeen))начатьПродолжениеФлика();
   else if(save.crystalStage==='советЗлодеев')запуститьМультик('советЗлодеев',начатьЧастьВремени);
@@ -5162,6 +5196,7 @@ function послеПобеды(){
 }
 function тикКристаллов(dt){
   const а=поход;а.время+=dt;
+  if(а.тип==='квантовая'){тикКванта(а,dt);return;}
   if(а.тип==='эпоха'||а.тип==='станция'){тикЭпохи(а,dt);return;}
   if(а.тип==='зал'||(а.тип==='мир'&&а.мир>=WORLDS.length)){
     const предел=а.тип==='зал'?31:82,r=Math.hypot(player.x,player.z);
@@ -5179,6 +5214,7 @@ function тикКристаллов(dt){
     return;
   }
   if(а.тип==='зал'){
+    if(а.квантПортал&&близко(а.квантПортал.position,2)){начатьЧетвертуюЧасть();return;}
     if(а.времяПортал&&близко(а.времяПортал.position,2)){войтиВПродолжениеВремени();return;}
     if(save.crystals.length>=23&&!save.officeOpen){начатьСигнал('предупреждение');return;}
     if(а.ангар&&близко(а.ангар.position,2)){начатьПогоню();return;}
@@ -7139,6 +7175,9 @@ function buildAdventureVista(id) {
 }
 
 function clearWorld() {
+  if(поход?.щитБлика){поход.щитБлика.userData.mats?.forEach(m=>m.dispose());поход.рисунокБлика?.dispose();}
+  квантВид=false;document.body.classList.remove('quantumView');
+  $('quantumBtn').classList.add('hidden');$('quantumBtn').classList.remove('on');$('quantumBtn').setAttribute('aria-pressed','false');$('tornadoBtn').classList.add('hidden');
   jungleGate=null;apeFight=null;waitingDome=null;distantHarvester=null;pendingEncounter=null;
   disposeAdventureVista();
   resetNature();
@@ -7774,7 +7813,8 @@ function hurtEnemy(e, dmg, kx, kz) {
 function hurtPlayer(dmg, from) {
   if (player.hurtT > 0 || state !== 'play') return;
   const D = diff();
-  if (D.harm === 'none') return;                           // 😊 на лёгком тебе ничего не сделают
+  if (D.harm === 'none') return;
+  if(поход?.тип==='квантовая'&&!player.second&&защитаБлика())return;                           // 😊 на лёгком тебе ничего не сделают
   if (D.harm === 'push') {                                 // 🙂 на среднем просто толкают
     player.hurtT = 0.7;
     const sx = from ? player.x - from.x : Math.sin(player.heading) * -1;
@@ -8685,6 +8725,7 @@ function loseGame() {
    HUD, СООБЩЕНИЯ
    ========================================================================= */
 function updateHud() {
+  if(поход?.тип==='квантовая'){квантИнфо();return;}
   if(поход?.тип==='станция'||поход?.тип==='эпоха'){инфоВремени();return;}
   if(поход){
     $('worldCard').textContent=поход.тип==='дом'?'Дом друзей':поход.тип==='зал'?'Этаж порталов':поход.тип==='кабинет'?'Кабинет Морока':мирыКристаллов[поход.мир];
@@ -8899,12 +8940,17 @@ function buildDiffs() {
   });
 }
 function refreshMenu() {
+  $('quantumChapterBtn').classList.toggle('hidden',!save.timeWon&&!save.quantumStarted);
+  for(const id of ['квантПобег','квантЗов'])document.querySelector('[data-kino="'+id+'"]').classList.toggle('hidden',!save.quantumStarted);
+  for(const id of ['квантГлик','квантУченики'])document.querySelector('[data-kino="'+id+'"]').classList.toggle('hidden',!save.quantumGlik);
+  document.querySelector('[data-kino="квантРазлом"]').classList.toggle('hidden',!save.quantumStarted||save.quantumStep<8);
+  document.querySelector('[data-kino="квантРик"]').classList.toggle('hidden',!save.quantumRik);
   $('timeChapterBtn').classList.toggle('hidden',!save.flikSeen);
   document.querySelector('[data-kino="встречаЧасовщика"]').classList.toggle('hidden',!save.flikSeen);
   document.querySelector('[data-kino="изгнание"]').classList.toggle('hidden',!save.timeWon);
   for(const id of ['мегалазер','флик'])document.querySelector('[data-kino="'+id+'"]').classList.toggle('hidden',!save.laserEnding);
   $('slotNum').textContent = slotIdx + 1;
-  $('continueBtn').textContent=save.postFinal?'💎 ПРОДОЛЖИТЬ ПОСЛЕ ФИНАЛА':'▶ ПРОДОЛЖИТЬ';
+  $('continueBtn').textContent=save.crystalStage==='квантоваяГлава'?'🌀 ПРОДОЛЖИТЬ ЧАСТЬ IV':save.postFinal?'💎 ПРОДОЛЖИТЬ ПОСЛЕ ФИНАЛА':'▶ ПРОДОЛЖИТЬ';
   const пусто = !save.postFinal && save.worlds === 1 && !save.coins && !save.prologueSeen;
   $('continueBtn').classList.toggle('hidden', пусто);
   $('startBtn').textContent = пусто ? '✨ НАЧАТЬ ПРИКЛЮЧЕНИЕ' : '✨ НОВАЯ ИГРА';
@@ -9990,7 +10036,7 @@ function машинаВремени(g){
 }
 function декорацииЭпохи(g,e,этап){
   const д=эпохиВремени[e];
-  if(этап===4)брус(g,0,-.51,0,96,1,110,д.земля);
+  if(этап===4||g!==world||поход?.тип!=='эпоха')брус(g,0,-.51,0,96,1,110,д.земля);
   const модели=[];
   for(const знак of [-1,1]){
     for(let i=0;i<3;i++){
@@ -10077,7 +10123,7 @@ const заданияПутешествия=[
  [ ['switch','Запуск верфи','Включи два энергопульта ударами'],['jump','Разорванная орбита','Перепрыгни разрывы и лазерные импульсы'],['hold','Нестабильные реакторы','Постой у каждого реактора две секунды, избегая дронов'],['sequence','Код посадки','Включи посадочные маяки в порядке 2 → 1 → 3'] ]
 ];
 function полМаршрута(а,x,z){
- for(const p of а.маршрут)if(Math.abs(x-p.x)<=p.w/2&&Math.abs(z-p.z)<=p.d/2)return 0;
+ for(const p of а.маршрут)if((!p.quantum||квантВид)&&Math.abs(x-p.x)<=p.w/2&&Math.abs(z-p.z)<=p.d/2)return 0;
  if(а.мостик?.visible&&Math.abs(x-а.мостик.position.x)<2.2&&Math.abs(z-а.мостик.position.z)<2.3)return 0;
  return -30;
 }
@@ -10199,6 +10245,7 @@ function ударНаТропе(а,r){
  return hit;
 }
 function вернутьНаТропу(p){
+ if(поход.тип==='квантовая'&&поход.q===4){поход.стражZ=29;поход.разбег=2.8;}
  const а=поход,точка=а.маршрут[а.чек];p.x=точка.x;p.z=точка.z+2;p.y=.3;p.vy=0;p.jumps=0;p.glide=0;p.glided=false;p.hurtT=1.2;
  if(!p.second){bigMsg('Блик вернул к контрольной точке',1.8,'#a3e6fc');sfx('portal');}
 }
@@ -10477,7 +10524,7 @@ function начатьБойСМороком(а){
   а.брат.userData.резетШлейф();sfx('boss');hint('Блик задержит Флика. Подойди к Мороку и ударами столкни его в разлом.');updateHud();
 }
 function попаданиеВЭпохе(radius){
-  const а=поход;if(а?.тип!=='эпоха')return false;
+  const а=поход;if(а?.тип==='квантовая')return ударКванта(radius);if(а?.тип!=='эпоха')return false;
   if(а.маршрут)return ударНаТропе(а,radius);
   const near=(p,r)=>Math.hypot(player.x-p.x,player.z-p.z)<=r&&player.y<4;
   if(!а.бой){
@@ -10584,6 +10631,265 @@ function тикСхваткиЭпохи(а,dt){
   }
 }
 
+/* ЧАСТЬ IV. Четыре брата и разломы Флика. */
+const КВАНТ_ЭТАПЫ=[
+ ['Тропа к горе','Перепрыгни разрывы. Прыжок — Пробел или кнопка ⤴.'],
+ ['Уступы над ущельем','Освой двойной прыжок: нажми ⤴ ещё раз в воздухе.'],
+ ['Парящий перевал','После двойного прыжка нажми ⤴ третий раз — включится парение.'],
+ ['Сокровище пещеры','Доберись до синего сокровища в глубине пещеры.'],
+ ['Пробуждение стража','Беги к выходу и перепрыгивай разрывы! Страж приближается.'],
+ ['Пески другого измерения','Включи зрение Глика: V или 👁. Найди три тайных ящика и разбей их.'],
+ ['Невидимые руины','Используй зрение Глика, чтобы увидеть мостики и найти выход.'],
+ ['Ученик у разлома','Перепрыгивай лазеры. Ударяй приспешников — они полетят в голову ученика.'],
+ ['Пиратский берег','Пройди берег и отбейся от пиратов на мостках.'],
+ ['Корабли без моря','Перепрыгни между палубами и найди путь к пещерам.'],
+ ['Пещеры контрабандистов','С помощью Глика найди скрытые мостики и три тайных замка.'],
+ ['Пленник жемчужной клетки','Разбей замки вокруг клетки и освободи второго брата.'],
+ ['Торнадо Рика','Испытай торнадо: T или 🌪. Одолей пиратов на пути.']
+];
+function квантПризрак(розовый=false){
+ const g=new THREE.Group(),цвет=розовый?0xcf72db:0x438af3;
+ const mat=new THREE.MeshStandardMaterial({color:цвет,emissive:цвет,emissiveIntensity:.38,roughness:.35,transparent:true,opacity:.88});
+ const body=propMesh(g,new THREE.SphereGeometry(.62,24,16),mat,0,.35,0);body.scale.set(1,1.3,.85);
+ const tail=propMesh(g,new THREE.ConeGeometry(.5,1.25,18),mat,0,-.65,-.12);tail.rotation.z=Math.PI;tail.rotation.x=.3;
+ for(const x of [-.22,.22]){
+   const eye=propMesh(g,new THREE.SphereGeometry(.13,12,10),plastic(0xf4f8ff),x,.65,.49);eye.scale.y=1.15;
+   propMesh(g,new THREE.SphereGeometry(.065,10,8),plastic(0x1b2346),x,.66,.61);
+   if(розовый){const brow=брус(g,x,.9,.53,.28,.065,.06,0x612e79);brow.rotation.z=x>0?.25:-.25;}
+ }
+ const рот=propMesh(g,new THREE.TorusGeometry(.12,.025,6,16,Math.PI),plastic(0x1f2b63),0,.27,.53);рот.rotation.z=Math.PI;
+ for(const s of [-1,1]){const рука=propMesh(g,new THREE.SphereGeometry(.2,14,10),mat,s*.65,.2,0);рука.scale.y=.6;}
+ const halo=propMesh(g,new THREE.TorusGeometry(.78,.035,6,40),emisM(розовый?0xf2b6ff:0x9bedff,.7),0,.4,0);halo.rotation.x=1.15;
+ g.userData.тик=t=>{tail.rotation.x=.3+Math.sin(t*3)*.18;halo.rotation.z=t*.6;};return g;
+}
+function морфИзКошмара(){
+ const g=квантПризрак();g.traverse(o=>{if(o.isMesh&&o.material?.transparent){o.material.color.setHex(0xece9ff);o.material.emissive.setHex(0x615c86);}});
+ for(const x of [-.22,.22])propMesh(g,new THREE.SphereGeometry(.09,10,8),emisM(0xff283b,1),x,.66,.66);
+ for(let i=0;i<5;i++){const a=i*Math.PI*2/5;propMesh(g,new THREE.ConeGeometry(.13,.5,5),metalM(0x9e9bc2),Math.cos(a)*.43,1.25,Math.sin(a)*.43);}
+ g.scale.setScalar(1.7);return g;
+}
+function начатьЧетвертуюЧасть(){
+ save.postFinal=true;save.crystalStage='квантоваяГлава';
+ if(!save.quantumStarted){save.quantumStarted=true;save.quantumStory='побег';save.quantumStep=0;}
+ saveNow();продолжитьКвантовуюГлаву();
+}
+function квантРолик(этап,id,после){save.quantumStory=этап;saveNow();запуститьМультик(id,после);}
+function продолжитьКвантовуюГлаву(){
+ if(save.quantumStory==='побег')квантРолик('побег','квантПобег',()=>квантРолик('зов','квантЗов',()=>этапКванта(0)));
+ else if(save.quantumStory==='зов')квантРолик('зов','квантЗов',()=>этапКванта(0));
+ else if(save.quantumStory==='глик')квантРолик('глик','квантГлик',()=>квантРолик('ученики','квантУченики',()=>этапКванта(5)));
+ else if(save.quantumStory==='ученики')квантРолик('ученики','квантУченики',()=>этапКванта(5));
+ else if(save.quantumStory==='разлом')квантРолик('разлом','квантРазлом',()=>этапКванта(8));
+ else if(save.quantumStory==='рик')квантРолик('рик','квантРик',()=>этапКванта(12));
+ else этапКванта(save.quantumStep,true);
+}
+function квантИнфо(){
+ const а=поход;if(а?.тип!=='квантовая')return;
+ $('worldCard').textContent='IV · '+КВАНТ_ЭТАПЫ[а.q][0];
+ $('taskCard').textContent=save.quantumPreviewDone&&а.q===12?'Найдены 2 из 4 братьев. Поиски продолжаются…':КВАНТ_ЭТАПЫ[а.q][1];
+ $('symbolCard').classList.remove('hidden');$('symbolCard').textContent='Братья · '+(save.quantumRik?2:save.quantumGlik?1:0)+' / 4'+(а.q===7?' · Ученик '+а.hp+' / 4':а.ящики?' · Замки '+а.собрано+' / 3':'')+(save.quantumInvincible>0?' · ✨ НЕУЯЗВИМОСТЬ '+Math.ceil(save.quantumInvincible)+' с':save.quantumShield?' · 💙 Защита '+save.quantumShield+' / 3':'');
+ $('hearts').textContent=diff().harm==='damage'?'❤️'.repeat(Math.max(0,hearts)):diff().harm==='none'?'😊':'🙂';
+ $('quantumBtn').classList.toggle('hidden',!save.quantumGlik);$('tornadoBtn').classList.toggle('hidden',!save.quantumRik);
+}
+function квантЗрение(){
+ if(state!=='play'||paused||поход?.тип!=='квантовая'||!save.quantumGlik)return;
+ квантВид=!квантВид;document.body.classList.toggle('quantumView',квантВид);
+ $('quantumBtn').setAttribute('aria-pressed',String(квантВид));$('quantumBtn').classList.toggle('on',квантВид);
+ for(const g of поход.тайные)g.visible=квантВид&&!g.userData.разбит;
+ hint(квантВид?'Глик: Теперь видны следы другого измерения!':'Обычное зрение');sfx('chime');
+}
+function квантТорнадо(){
+ const а=поход;if(state!=='play'||paused||а?.тип!=='квантовая'||!save.quantumRik)return;
+ if(а.торнадоКд>0){hint('Рик: Дай мне пару секунд перед следующим вихрем!');return;}
+ а.торнадоT=2.4;а.торнадоКд=5;а.вихрь.visible=true;sfx('glide');
+}
+function квантПират(){
+ const g=makeHero(0x8d536d,'tshirt','none');
+ брус(g,0,1.98,0,1,.2,.65,0x322943);propMesh(g,new THREE.ConeGeometry(.43,.36,3),plastic(0x322943),0,2.19,0).rotation.y=Math.PI/2;
+ брус(g,.19,1.67,.39,.2,.17,.07,0x171c31);return g;
+}
+function этапКванта(n,загрузка=false){
+ n=THREE.MathUtils.clamp(n,0,12);
+ if(!загрузка||n!==save.quantumStep){save.quantumCheckpoint=0;save.quantumCrates=0;save.quantumBlikCrates=0;}
+ save.quantumStep=n;save.quantumStory='игра';save.crystalStage='квантоваяГлава';saveNow();
+ const тема=n>=8?'ocean':n>=5?'desert':n>=3?'lair':'forest';свояСцена('квантовая',-1,тема,0,14,Math.PI);
+ const а=поход;Object.assign(а,{q:n,маршрут:[],тайные:[],чек:save.quantumCheckpoint||0,собрано:0,торнадоT:0,торнадоКд:0,враги:[]});hearts=diff().hearts||3;
+ const шаг=n===2?20:n===1?16:n===4?16:14,count=n===7?1:n===12?4:6,длина=n===0?11.6:n===1?9:n===2?8:10;
+ for(let i=0;i<count;i++){
+   const x=i===0?0:Math.sin(i*1.5+n)*2.6,z=14-i*шаг,w=n===7?23:11,d=n===7?38:длина;
+   const p={x,z,w,d};а.маршрут.push(p);const color=n>=8?0x96775c:n>=5?0xcfac73:n>=3?0x586378:0x78935d;
+   propMesh(world,new THREE.BoxGeometry(w,2,d),envSurface(n>=8?'timber':'rock',color,2),x,-1,z);
+   брус(world,x,.04,z-d/2+.2,w-.3,.08,.18,n>=5?0x8be4fa:0xf8cd79);
+   if(n>=3&&n<=4||n===10){
+     for(const s of [-1,1]){const r=propMesh(world,new THREE.DodecahedronGeometry(3.3,0),plastic(0x4b5269),x+s*9,1.5,z);r.scale.y=1.9;}
+     const arch=propMesh(world,new THREE.TorusGeometry(8.7,1.25,6,18,Math.PI),plastic(0x596279),x,2,z);arch.rotation.z=0;
+   }else if(n>=8){
+     const hull=propMesh(world,new THREE.CylinderGeometry(5.5,3.2,3,8),plastic(0x604936),x,-2,z);hull.scale.z=1.15;
+     брус(world,x+4,3,z,.18,6,.18,0x7d6047);const sail=propMesh(world,new THREE.PlaneGeometry(3,3.6),new THREE.MeshStandardMaterial({color:0xeee1b8,side:THREE.DoubleSide}),x+3.8,4,z);sail.rotation.y=.4;
+   }else{
+     for(const s of [-1,1]){const rock=propMesh(world,new THREE.ConeGeometry(5,12,7),plastic(n>=5?0xa78459:0x667862),x+s*13,1,z-4);rock.scale.z=1.4;}
+   }
+   if(i%2===0&&n!==7)меткаПрохода(i===0?КВАНТ_ЭТАПЫ[n][0]:'Контрольная точка',x,3,z+2);
+   if([5,6,10].includes(n)&&i>0){
+     const prev=а.маршрут.filter(p=>!p.quantum).at(-2),zmid=(prev.z+z)/2,xmid=(prev.x+x)/2;
+     const g=брус(world,xmid,-.12,zmid,4.8,.24,шаг-длина+.4,0x62bde9);g.visible=false;а.тайные.push(g);
+     а.маршрут.push({x:xmid,z:zmid,w:4.8,d:шаг-длина+.4,quantum:true,мост:true});
+   }
+ }
+ // Невидимые мостики не меняют порядок контрольных площадок.
+ а.маршрут.sort((a,b)=>b.z-a.z);а.площадки=а.маршрут.filter(p=>!p.quantum);а.чек=Math.min(а.чек,а.маршрут.length-1);
+ const cp=а.маршрут[а.чек];if(cp.quantum)а.чек=0;
+ const старт=а.маршрут[а.чек];player.x=старт.x;player.z=старт.z+2;player.y=.3;lastPoint={x:player.x,z:player.z};
+ брус(world,0,-24,-34,145,1,170,n>=8?0x245e85:n>=5?0x725435:0x18273b);
+ const конец=а.площадки.at(-1);а.выход=кольцоПрохода(world,конец.x,2.4,конец.z-2,0x87d5ec);а.выход.visible=n!==3&&n!==7&&n!==11&&!(n===12&&save.quantumPreviewDone);
+ if(n===3){
+   а.реликвия=квантПризрак();world.add(а.реликвия);а.реликвия.position.set(конец.x,2,конец.z);а.реликвия.scale.setScalar(.55);
+   а.капсула=propMesh(world,new THREE.IcosahedronGeometry(1.35,1),new THREE.MeshPhysicalMaterial({color:0x95ceff,transparent:true,opacity:.2,wireframe:true}),конец.x,2,конец.z);
+ }
+ if(n===4){
+   а.страж=рыцарьЦитадели();world.add(а.страж);а.страж.scale.setScalar(2.5);а.стражZ=29;а.разбег=2.8;а.добыча=квантПризрак();world.add(а.добыча);а.добыча.scale.setScalar(.4);setRun(true);startTheme('bossfight');
+ }
+ if(save.quantumGlik){а.глик=квантПризрак();world.add(а.глик);а.глик.scale.setScalar(.65);}
+ if(save.quantumRik){а.рик=квантПризрак(true);world.add(а.рик);а.рик.scale.setScalar(.65);}
+ if([5,10,11].includes(n)){
+   а.ящики=[];
+   for(let i=0;i<3;i++){
+     const p=а.площадки[[1,3,4][i]],g=new THREE.Group();world.add(g);g.position.set(p.x,0,p.z);
+     брус(g,0,.6,0,1.6,1.2,1.3,n===11?0x795b8b:0x5a7ea2);брус(g,0,.7,.68,.26,.7,.08,0x9ee9ff);
+     g.userData.номер=i;g.userData.разбит=!!(save.quantumCrates&(1<<i));g.visible=n===11&&!g.userData.разбит;
+     if(n!==11)а.тайные.push(g);а.ящики.push(g);if(g.userData.разбит)а.собрано++;
+   }
+   if(n===11){а.пленный=квантПризрак(true);world.add(а.пленный);а.пленный.position.set(конец.x,2,конец.z);а.клетка=propMesh(world,new THREE.IcosahedronGeometry(1.6,1),new THREE.MeshBasicMaterial({color:0xc6a6fa,wireframe:true}),конец.x,2,конец.z);}
+ }
+ if(n>=8&&n!==11){
+   for(let i=0;i<(n===12?6:3);i++){
+     const p=а.площадки[Math.min(а.площадки.length-1,1+Math.floor(i/2))],g=квантПират();world.add(g);g.position.set(p.x+(i%2?2:-2),0,p.z);
+     а.враги.push({g,жив:true,hp:2,p,фаза:i});
+   }
+ }
+ ящикиБлика(а);
+ if(n===7)аренаУченикаКванта(а);
+ if(save.quantumRik){
+   а.вихрь=new THREE.Group();world.add(а.вихрь);а.вихрь.visible=false;
+   for(let i=0;i<7;i++){const r=propMesh(а.вихрь,new THREE.TorusGeometry(.7+i*.5,.1,6,32,Math.PI*1.6),emisM(0xd897f5,.6),0,.3+i*.5,0);r.rotation.x=Math.PI/2;r.rotation.z=i*.8;}
+ }
+ if(а.ящики&&а.собрано===3&&n!==11)а.выход.visible=true;
+ квантИнфо();updateCamera(1);bigMsg('Часть IV · '+КВАНТ_ЭТАПЫ[n][0],2,'#9bd6ff');hint(КВАНТ_ЭТАПЫ[n][1]);
+}
+
+function ящикиБлика(а){
+ а.бликЯщики=[];а.щитБлика=makeGhost();world.add(а.щитБлика);а.щитБлика.scale.setScalar(.28);а.щитБлика.visible=false;а.щитБлика.userData.резетШлейф();
+ а.сияние=propMesh(world,new THREE.SphereGeometry(1.3,24,16),new THREE.MeshBasicMaterial({color:0x8be6ff,transparent:true,opacity:.16,depthWrite:false}),0,0,0);а.сияние.visible=false;
+ if(![0,2,5,7,9,12].includes(а.q))return;
+ const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d');
+ ctx.fillStyle='#354b78';ctx.fillRect(0,0,128,128);ctx.strokeStyle='#bbebff';ctx.lineWidth=4;ctx.strokeRect(5,5,118,118);
+ ctx.fillStyle='#63cbff';ctx.beginPath();ctx.moveTo(35,84);ctx.bezierCurveTo(20,18,100,12,99,67);ctx.bezierCurveTo(99,100,75,98,60,112);ctx.lineTo(64,92);ctx.quadraticCurveTo(44,96,35,84);ctx.fill();
+ ctx.fillStyle='#fff';for(const x of [52,77]){ctx.beginPath();ctx.ellipse(x,52,10,14,0,0,Math.PI*2);ctx.fill();}
+ ctx.fillStyle='#194a93';for(const x of [55,80]){ctx.beginPath();ctx.arc(x,54,4,0,Math.PI*2);ctx.fill();}
+ ctx.strokeStyle='#24518c';ctx.lineWidth=3;ctx.beginPath();ctx.arc(66,70,9,0,Math.PI);ctx.stroke();
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;а.рисунокБлика=tex;
+ const face=new THREE.MeshBasicMaterial({map:tex});
+ for(let i=0;i<3;i++){
+   const p=а.площадки[Math.min(а.площадки.length-1,i+1)],g=new THREE.Group();world.add(g);
+   g.position.set(а.q===7?[-8,8,0][i]:p.x+(i%2?3:-3),0,а.q===7?[17,8,1][i]:p.z+1);
+   брус(g,0,.65,0,1.35,1.3,1.35,0x977857);
+   for(const z of [-.686,.686]){const f=propMesh(g,new THREE.PlaneGeometry(1.15,1.15),face,0,.7,z);if(z<0)f.rotation.y=Math.PI;}
+   g.userData.номер=i;g.visible=!(save.quantumBlikCrates&(1<<i));а.бликЯщики.push(g);
+ }
+}
+function получитьЩитБлика(){
+ save.quantumShield=(save.quantumShield||0)+1;
+ if(save.quantumShield>=3){save.quantumShield=0;save.quantumInvincible=8;bigMsg('✨ ТРИ БЛИКА! Неуязвимость на 8 секунд',2.5,'#b9efff');}
+ else bigMsg('💙 Блик защитит от удара · '+save.quantumShield+' / 3',2,'#b9efff');
+ saveNow();квантИнфо();sfx('chime');
+}
+function защитаБлика(){
+ if(save.quantumInvincible>0)return true;
+ if(!save.quantumShield)return false;
+ save.quantumShield--;player.hurtT=1.2;saveNow();квантИнфо();puff(player.x,player.y+1,player.z,0x8de5ff,12);sfx('chime');bigMsg('Блик принял удар на себя!',1.4,'#a5e5ff');return true;
+}
+function тикЩитаБлика(а,dt){
+ if(save.quantumInvincible>0){const было=Math.ceil(save.quantumInvincible);save.quantumInvincible=Math.max(0,save.quantumInvincible-dt);if(было!==Math.ceil(save.quantumInvincible)){saveNow();квантИнфо();}}
+ const актив=save.quantumShield>0||save.quantumInvincible>0;
+ а.щитБлика.visible=актив;а.сияние.visible=save.quantumInvincible>0;
+ if(актив){const t=а.время;а.щитБлика.position.set(player.x+Math.cos(t*2)*.65,player.y+3.1,player.z+Math.sin(t*2)*.65);киноБликТик(а.щитБлика,dt);}
+ if(а.сияние.visible){а.сияние.position.set(player.x,player.y+1.1,player.z);а.сияние.material.opacity=.12+Math.sin(а.время*8)*.04;}
+}
+
+function следующийКвант(){
+ const n=поход.q;
+ if(n===0&&!(save.quantumSkills&1)||n===1&&!(save.quantumSkills&2)||n===2&&!(save.quantumSkills&4)){hint(КВАНТ_ЭТАПЫ[n][1]);return;}
+ if(n===4){save.quantumGlik=true;saveNow();квантРолик('глик','квантГлик',()=>квантРолик('ученики','квантУченики',()=>этапКванта(5)));return;}
+ if(n===5||n===10){if(поход.собрано<3){hint('Глик: Здесь ещё остались тайные замки! Включи зрение и ударь по ящикам.');return;}}
+ if(n===12){if(поход.враги.some(v=>v.жив)){hint('Рик: Сначала разберёмся с пиратами!');return;}save.quantumPreviewDone=true;saveNow();квантИнфо();bigMsg('Глик и Рик с тобой · 2 из 4\nПродолжение следует…',6,'#dbb6ff');поход.выход.visible=false;return;}
+ этапКванта(n+1);
+}
+function аренаУченикаКванта(а){
+ а.hp=4;а.ударКд=0;а.ученик=makeHero(0x8355ad,'armor','none');world.add(а.ученик);а.ученик.scale.setScalar(2.3);а.ученик.position.set(0,0,-.5);
+ а.пленный=квантПризрак(true);world.add(а.пленный);а.пленный.position.set(5,2,-1);
+ а.клетка=propMesh(world,new THREE.IcosahedronGeometry(1.35,1),new THREE.MeshBasicMaterial({color:0xd7b0f7,wireframe:true}),5,2,-1);
+ а.лазер=брус(world,0,.55,6,21,.17,.22,0xff476c);а.лазер.material=emisM(0xff476c,1);а.лазер.visible=false;
+ а.прицел=брус(world,0,.04,6,21,.05,.8,0xffbd69);а.прицел.visible=false;
+ а.отражения=[];а.приспешники=[];
+ for(let i=0;i<3;i++){const g=противникТропы(4,i);world.add(g);g.position.set((i-1)*5,0,10+i);а.приспешники.push({g,жив:true,кд:0});}
+ startTheme('bossfight');
+}
+function ударКванта(radius){
+ const а=поход;if(а?.тип!=='квантовая')return false;
+ let hit=false;const рядом=g=>Math.hypot(player.x-g.position.x,player.z-g.position.z)<radius+1&&player.y<3;
+ for(const g of а.бликЯщики||[])if(g.visible&&рядом(g)){g.visible=false;save.quantumBlikCrates|=1<<g.userData.номер;получитьЩитБлика();hit=true;}
+ if(а.q===7){
+   if(а.hp<=0)return hit;
+   const v=а.приспешники.find(v=>v.жив&&рядом(v.g));if(!v)return hit;
+   v.жив=false;v.кд=3;а.отражения.push({g:v.g,от:v.g.position.clone(),t:0});sfx('hit');return true;
+ }
+ for(const g of а.ящики||[])if(!g.userData.разбит&&(а.q===11||квантВид)&&рядом(g)){
+   g.userData.разбит=true;g.visible=false;а.собрано++;save.quantumCrates|=1<<g.userData.номер;saveNow();sfx('chime');hit=true;
+ }
+ for(const v of а.враги)if(v.жив&&рядом(v.g)){v.hp--;hit=true;if(v.hp<=0){v.жив=false;v.g.visible=false;puff(v.g.position.x,1,v.g.position.z,0xd6baf3,10);}}
+ квантИнфо();return hit;
+}
+function тикКванта(а,dt){
+ тикЩитаБлика(а,dt);
+ const t=а.время,n=а.q,рядом=(g,r)=>Math.hypot(player.x-g.position.x,player.z-g.position.z)<r&&player.y>-.5;
+ for(let i=0;i<а.маршрут.length;i++){
+   const p=а.маршрут[i];if(p.quantum)continue;
+   if(n!==4&&n!==7&&i>а.чек&&Math.abs(player.x-p.x)<p.w/2&&Math.abs(player.z-p.z)<p.d/2&&Math.abs(player.y)<.25){а.чек=i;save.quantumCheckpoint=i;saveNow();lastPoint={x:p.x,z:p.z+2};}
+ }
+ const skills=save.quantumSkills|(player.jumps>0?1:0)|(player.jumps>=2?2:0)|(player.glided?4:0);if(skills!==save.quantumSkills){save.quantumSkills=skills;saveNow();}
+ for(const [g,s] of [[а.глик,1],[а.рик,-1]])if(g){g.position.set(player.x+s*1.7,player.y+2.4+Math.sin(t*2)*.15,player.z+.4);g.rotation.y=player.heading;g.userData.тик(t);}
+ if(n===3){а.реликвия.userData.тик(t);а.капсула.rotation.y=t*.4;if(рядом(а.реликвия,2)){sfx('boss');этапКванта(4);return;}}
+ if(n===4){
+   а.добыча.position.set(player.x,player.y+2.2,player.z+.6);а.добыча.userData.тик(t);
+   а.разбег=Math.max(0,а.разбег-dt);if(!а.разбег)а.стражZ-=dt*6.4;
+   const f=THREE.MathUtils.clamp((14-а.стражZ)/16,0,4.999),i=Math.floor(f),u=а.площадки[i],v=а.площадки[i+1];
+   а.страж.position.set(THREE.MathUtils.lerp(u.x,v.x,f-i),Math.sin((f-i)*Math.PI)*2,а.стражZ);а.страж.rotation.y=Math.PI;
+   if(Math.hypot(player.x-а.страж.position.x,player.z-а.стражZ)<2.5&&player.y<4){вернутьНаТропу(player);hint('Страж настиг тебя. Попробуй снова — беги и прыгай!');}
+ }
+ for(const v of а.враги){if(!v.жив)continue;v.g.position.x=v.p.x+Math.sin(t+v.фаза)*2.7;
+   if(рядом(v.g,1.2)&&player.y<1.5)hurtPlayer(1,v.g.position);}
+ if(а.q===7){
+   if(а.hp<=0)return;
+   const phase=t%4.6;а.прицел.visible=phase>1.2&&phase<2;а.лазер.visible=phase>=2&&phase<3.6;
+   а.лазер.position.z=18-(phase-2)*12;
+   if(а.лазер.visible&&Math.abs(player.z-а.лазер.position.z)<.55&&Math.abs(player.x)<10.5&&player.y<1.1)hurtPlayer(1,а.лазер.position);
+   for(const v of а.приспешники){
+     if(!v.жив){v.кд-=dt;if(v.кд<=0&&!а.отражения.some(o=>o.g===v.g)){v.жив=true;v.g.visible=true;v.g.position.set((а.приспешники.indexOf(v)-1)*5,0,12);}}
+     else{v.g.position.x+=Math.sign(player.x-v.g.position.x)*dt*.7;v.g.position.z=10+Math.sin(t+а.приспешники.indexOf(v))*2;if(рядом(v.g,1.1)&&player.y<1.4)hurtPlayer(1,v.g.position);}
+   }
+   for(let i=а.отражения.length-1;i>=0;i--){const o=а.отражения[i];o.t+=dt*1.5;const k=Math.min(1,o.t);o.g.position.lerpVectors(o.от,new THREE.Vector3(0,4,-.5),k);o.g.position.y+=Math.sin(k*Math.PI)*2;
+     if(k===1){o.g.visible=false;а.отражения.splice(i,1);а.hp--;sfx('hit');квантИнфо();if(а.hp===0){квантРолик('разлом','квантРазлом',()=>этапКванта(8));return;}}}
+ }
+ if(а.торнадоКд>0)а.торнадоКд=Math.max(0,а.торнадоКд-dt);
+ if(а.вихрь){а.торнадоT=Math.max(0,а.торнадоT-dt);а.вихрь.visible=а.торнадоT>0;
+   if(а.вихрь.visible){а.вихрь.position.set(player.x,player.y,player.z);а.вихрь.rotation.y=t*9;
+     for(const v of а.враги)if(v.жив&&Math.hypot(player.x-v.g.position.x,player.z-v.g.position.z)<5.2){v.жив=false;v.g.visible=false;puff(v.g.position.x,1,v.g.position.z,0xe7a6ff,12);}}
+   $('tornadoBtn').setAttribute('data-cap',а.торнадоКд>0?'РИК · '+Math.ceil(а.торнадоКд)+' с':'РИК · T');
+ }
+ if(n===11&&а.собрано===3){а.клетка.visible=false;if(рядом(а.пленный,2.5)){save.quantumRik=true;saveNow();квантРолик('рик','квантРик',()=>этапКванта(12));return;}}
+ if(а.выход.visible&&рядом(а.выход,2))следующийКвант();
+}
+
 function киноКомандаВремени(){
   const герои=[киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,-2,2,0),
     ...ДРУЗЬЯ.map((д,i)=>киноЧеловек(д.цвет,д.костюм,д.шляпа,[-3.8,.65,2.3][i],[.3,1.1,.2][i],0))];
@@ -10616,7 +10922,7 @@ function киноКомандаВремени(){
   ]
 };
 function показатьИзгнание(){
-  запуститьМультик('изгнание',()=>{save.timeWon=true;войтиВЗал();refreshMenu();bigMsg('Путешествие во времени завершено!',3.6,'#ffdc84');});
+  запуститьМультик('изгнание',()=>{save.timeWon=true;начатьЧетвертуюЧасть();refreshMenu();});
 }
 МУЛЬТИКИ.изгнание={
   музыка:'space',
@@ -10658,6 +10964,88 @@ function показатьИзгнание(){
       ()=>камера(-2.6,2.6,5.2,-.9,2,1.2),с=>{applyWorldLook('space');с.прошлое.visible=false;с.арена.visible=true;
         с.злодеи.forEach(o=>o.visible=false);с.герои.forEach(h=>{h.visible=true;киноЛицом(h,-.8,1.4);});с.блик.visible=true;})
   ]
+};
+
+function квантСценаЗлодеев(с){
+ applyWorldLook('lair');брус(world,0,-.4,0,45,.8,35,0x4f4b62);
+ с.м=киноМорок(-3,0,-2);с.м.scale.setScalar(.8);
+ с.ч=часовщик();world.add(с.ч);с.ч.position.set(3,0,-2);с.ч.scale.setScalar(.9);
+ с.ф=makeGhost(true);world.add(с.ф);с.ф.position.set(0,3,-5);с.ф.userData.резетШлейф();
+ с.щель=кольцоПрохода(world,0,3,-7,0xd977fb);с.щель.scale.set(.02,1.5,1);с.щель.visible=false;
+}
+МУЛЬТИКИ.квантПобег={
+ музыка:'lair',собрать:квантСценаЗлодеев,
+ всегда(с,dt,к){киноМорокТик(с.м,к.всего);киноБликТик(с.ф,dt);с.ч.userData.стрелка.rotation.z=-к.всего;},
+ кадры:[
+ фраза('Часовщик','Мы уже успели вырасти, а ты всё ещё споришь! Мои часы не могут вывести нас из этого прошлого.',()=>камера(7,4,6,1,2,-3)),
+ фраза('Морок','Если бы ты не потерял управление временем, мы бы здесь не оказались!',()=>камера(-6,3.5,4,-2,2,-2)),
+ {длит:4.5,реплика:['Флик','Хватит! Я разорву само пространство!'],нач(с){с.щель.visible=true;sfx('boss');},
+ тик(с,t){const k=Math.min(1,t/4);с.щель.scale.x=.03+k;с.ф.position.x=Math.sin(t*35)*k*.14;с.ф.position.y=3+k*.7;с.щель.rotation.z=Math.sin(t*13)*.04;},кам(с,t){камера(4,4.7,8-t*.4,0,3,-5);}},
+ {длит:3.5,реплика:['Морок','Разлом! Скорее, пока он открыт!'],
+ тик(с,t){const k=сглаж(t/3);с.м.position.set(-3*(1-k),k,-2-5*k);с.ч.position.set(3*(1-k),k,-2-5*k);с.ф.position.z=-5-3*k;с.м.scale.setScalar(.8*(1-k)+.01);с.ч.scale.setScalar(.9*(1-k)+.01);if(k>.9&&!с.вспыхнул){с.вспыхнул=true;киноВспышка('#b9dfff',.5,.4);}},кам(){камера(0,4,7,0,2.5,-6);}}
+ ]
+};
+МУЛЬТИКИ.квантЗов={
+ музыка:'forest',собрать(с){applyWorldLook('forest');брус(world,0,-.3,0,65,.6,50,0x829e63);world.add(киноДомик(0,-9));
+  с.я=киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,0,2,0);с.я.rotation.z=-Math.PI/2;с.я.position.y=.75;
+  брус(world,0,.3,2,4,.6,1.5,0x967554);с.б=киноБлик(-2,2.5,2);с.гора=propMesh(world,new THREE.ConeGeometry(8,19,8),plastic(0x6b7b88),18,6,-20);},
+ всегда(с,dt,к){киноБликТик(с.б,dt);},
+ кадры:[
+ фраза('Блик','Великая сила пробудилась… Человечек, просыпайся!',()=>камера(4,3,7,0,1.3,2)),
+ {длит:2,тик(с,t){с.я.rotation.z=-Math.PI/2*(1-сглаж(t/1.7));с.я.position.y=.75*(1-сглаж(t/1.7));},кам(){камера(3,2.8,7,0,1.5,2);}},
+ фраза('Блик','Боюсь, это предвещает катастрофу, способную пошатнуть саму реальность.',()=>камера(-4,2.9,5,-1,1.9,2)),
+ фраза('Блик','Сила исходит из горы. Быстрее, нам нужно спешить!',()=>камера(-6,5,10,13,5,-13))
+ ]
+};
+function квантЗнакомство(с,рик=false){
+ applyWorldLook(рик?'ocean':'desert');брус(world,0,-.3,0,38,.6,30,рик?0xb18f65:0xbfa36c);
+ с.я=киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,-2,2,.7);с.б=киноБлик(-.3,2.2,2);
+ с.к=квантПризрак(рик);world.add(с.к);с.к.position.set(2,2,-.5);
+}
+МУЛЬТИКИ.квантГлик={
+ музыка:'space',собрать(с){квантЗнакомство(с);},всегда(с,dt,к){киноБликТик(с.б,dt);с.к.userData.тик(к.всего);с.к.position.y=2+Math.sin(к.всего*2)*.15;},
+ кадры:[
+ фраза('Человечек','Сокровище умеет разговаривать? Кто ты?',()=>камера(-4,2.7,6,0,1.6,1)),
+ фраза('Глик','Я Глик, квантовый призрак из другой вселенной. Ты освободил меня!',()=>камера(4,2.8,4,2,2,-.5)),
+ фраза('Глик','Нас четверо братьев. Флик наоткрывал пространственных щелей. Чтобы закрыть их, нужно найти ещё троих.',()=>камера(4,3.3,6,0,1.7,0)),
+ фраза('Глик','Моё зрение показывает то, что скрыто между измерениями: ящики, мосты и платформы. Я помогу тебе их увидеть.',()=>камера(3,3,5,1,2,0))
+ ]
+};
+МУЛЬТИКИ.квантУченики={
+ музыка:'lair',собрать(с){квантСценаЗлодеев(с);с.ч.visible=с.ф.visible=false;
+  с.у=киноЧеловек(0x8355ad,'armor','none',-3,3,.5);с.морф=морфИзКошмара();world.add(с.морф);с.морф.position.set(3,2.5,2);
+  с.п1=кольцоПрохода(world,-5,2.5,-6,0xe8bf79);с.п2=кольцоПрохода(world,5,2.5,-6,0x977bfb);},
+ всегда(с,dt,к){киноМорокТик(с.м,к.всего);с.морф.userData.тик(к.всего);},
+ кадры:[
+ фраза('Морок','Ученики, ко мне! Пространственные щели открыты. Мы займём другие измерения!',()=>камера(7,5,10,0,2,0)),
+ фраза('Первый ученик','Я отправлюсь в пустынное измерение. Человечек не пройдёт мимо моих лазеров.',()=>камера(-6,3,6,-3,1.6,2)),
+ фраза('Морф','Я — воплощение кошмара. Пусть другие миры узнают страх!',()=>камера(6,3.7,5,3,2.7,2)),
+ {длит:4,реплика:['Морок','Вперёд! Разделимся — и реальность будет нашей!'],
+ тик(с,t){const k=сглаж(t/3.5);с.у.position.set(-3-2*k,0,3-9*k);с.морф.position.set(3+2*k,2.5,2-8*k);с.у.scale.setScalar(1-k*.99);с.морф.scale.setScalar(1.7*(1-k)+.01);},кам(){камера(0,4.5,9,0,2,-3);}}
+ ]
+};
+МУЛЬТИКИ.квантРазлом={
+ музыка:'bossfight',собрать(с){applyWorldLook('desert');брус(world,0,-.3,0,40,.6,35,0xc1a06b);
+  с.у=киноЧеловек(0x8355ad,'armor','none',0,-2,0);с.у.scale.setScalar(2);
+  с.р=квантПризрак(true);world.add(с.р);с.р.position.set(3,2,-2);
+  с.я=киноЧеловек(COLORS[save.color].hex,save.suit,save.hat,-2,5,Math.PI);с.б=киноБлик(-.5,2.5,4);
+  с.щель=кольцоПрохода(world,0,3,-6,0xae69f0);с.щель.scale.x=.03;},
+ всегда(с,dt,к){киноБликТик(с.б,dt);с.р.userData.тик(к.всего);},
+ кадры:[
+ фраза('Глик','У него мой брат! Освободи его…',()=>камера(6,3.5,7,1,2,-2)),
+ {длит:4,реплика:['Первый ученик','Нет! Этот разлом выходит из-под контроля!'],нач(){sfx('boss');},
+ тик(с,t){const k=сглаж(t/3.7);с.щель.scale.x=.03+k;с.у.position.z=-2-4*k;с.у.rotation.z=k*.6;с.р.position.set(3*(1-k),2+k,-2-4*k);с.у.scale.setScalar(2*(1-k)+.01);с.р.scale.setScalar(1-k+.01);},кам(){камера(5,4,7,0,2,-4);}},
+ фраза('Глик','Не успели… Я чувствую брата за щелью. Там корабли, пираты и пещеры. Идём за ним!',()=>камера(-4,3,7,-1,1.7,4))
+ ]
+};
+МУЛЬТИКИ.квантРик={
+ музыка:'forest',собрать(с){квантЗнакомство(с,true);},всегда(с,dt,к){киноБликТик(с.б,dt);с.к.userData.тик(к.всего);},
+ кадры:[
+ фраза('Рик','Наконец-то! Я бы и сам выбрался… ещё немного — и разнёс бы всю эту клетку!',()=>камера(4,2.8,5,2,2,0)),
+ фраза('Глик','Это мой брат Рик. Он бывает сердитым, зато его вихри очень сильные.',()=>камера(-4,3,6,0,1.7,1)),
+ фраза('Рик','Позови меня кнопкой торнадо — закружу врагов! Только дай мне немного передохнуть между вихрями.',()=>камера(4,2.8,5,2,2,0)),
+ фраза('Блик','Теперь с нами двое братьев из четырёх. Найдём остальных — и сможем закрыть щели Флика.',()=>камера(-3,3,6,0,2,1))
+ ]
 };
 
 МУЛЬТИКИ.предупреждение={
@@ -11169,6 +11557,13 @@ function startGame(idx) {
                : 'WASD или стрелки — идти, Пробел (дважды/трижды) — двойной прыжок и парение, E — удар с зарядом');
 }
 
+$('quantumChapterBtn').addEventListener('click',начатьЧетвертуюЧасть);
+$('quantumBtn').addEventListener('pointerdown',e=>{e.preventDefault();квантЗрение();});
+$('tornadoBtn').addEventListener('pointerdown',e=>{e.preventDefault();квантТорнадо();});
+addEventListener('keydown',e=>{
+  if(e.repeat||/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName)||e.target?.isContentEditable)return;
+  if(e.code==='KeyV')квантЗрение();if(e.code==='KeyT')квантТорнадо();
+});
 $('timeChapterBtn').addEventListener('click',()=>{
   if(['эпоха','станция','дуэльМорока','изгнание','советЗлодеев','встречаЧасовщика'].includes(save.crystalStage))послеПобеды();
   else войтиВПродолжениеВремени();
