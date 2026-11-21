@@ -287,7 +287,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "1140f4be49";</script>
+  <script>window.__APP_VER = "91248cb34e";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -1837,6 +1837,7 @@ let waterLevel = -99;                               // ниже этой выс�
 /* высота земли в точке — по ней ходит герой и стоит вся растительность */
 function heightAt(x, z) {
   const K = terrainKind;
+  if(K==='cellar'&&поход?.маршрут)return полМаршрута(поход,x,z);
   if (K === 'apeGrove' || K === 'cellar' || K === 'igloo' || K === 'cauldron') return 0;   // подземелья и котёл — ровный пол
   if (K === 'кино') return кино && кино.высота ? кино.высота(x, z) : 0;   // 🎬 декорации мультика
   if (K === 'ruins') {
@@ -8350,6 +8351,7 @@ function updatePlayer(dt) {
   // невозможно (p.swimming ровно ему и равно), а ПОД куполом оно верно каждый кадр —
   // и Марк слышал непрерывный стук, будто его толкают (22.08). Звук убран.
 
+  if(поход?.маршрут&&p.y<-7)вернутьНаТропу(p);
   p.mesh.position.set(p.x, p.y + (p.lift || 0), p.z);
   p.mesh.rotation.y = p.heading;
   // 💨 на бегу из-под ног летит пыль
@@ -9988,11 +9990,11 @@ function машинаВремени(g){
 }
 function декорацииЭпохи(g,e,этап){
   const д=эпохиВремени[e];
-  брус(g,0,-.51,0,96,1,110,д.земля);
+  if(этап===4)брус(g,0,-.51,0,96,1,110,д.земля);
   const модели=[];
   for(const знак of [-1,1]){
     for(let i=0;i<3;i++){
-      const x=знак*(12+(i+этап)%3*2),z=14-i*17;
+      const x=знак*(12+(i+этап)%3*2),z=14-i*(этап===4?17:36);
       const m=new THREE.Group();m.position.set(x,0,z);g.add(m);
       if(e===0){
         junglePalm(m,знак*1.3,-3,.9+(i%2)*.4);const d=динозавр(i===1?0x789e74:0x52856a);m.add(d);d.rotation.y=-знак*(.9+i*.2);d.scale.setScalar(1+i*.15);модели.push(d);
@@ -10066,6 +10068,189 @@ function тропаЭпохи(а){
   }
 }
 
+// Каждый этап путешествия — отдельная задача на длинном маршруте над разломами.
+const заданияПутешествия=[
+ [ ['carry','Яйцо над пропастью','Подбери яйцо у начала тропы и донеси до гнезда','яйцо'],['jump','Горячие ключи','Перепрыгни разрывы и пережди выбросы пара'],['rescue','Пленники лиан','Ударами разорви лианы у трёх динозавриков'],['escort','Малыш ищет стадо','Веди динозаврика по тропе: жди его после каждого прыжка'] ],
+ [ ['rescue','Жители в клетках','Разбей три замка и освободи жителей'],['switch','Механизмы моста','Ударь по двум колёсам, чтобы опустить мост'],['defense','Засада у ворот','Одолей крыс и стражников на пути к воротам'],['escort','Вестник цитадели','Проведи вестника через разрывы и крысиные засады'] ],
+ [ ['sequence','Песня барабанов','Ударь по барабанам в порядке 1 → 2 → 3'],['jump','Тропа ветра','Прыгай через ущелья и пережидай порывы ветра'],['hold','Погасшие фонари','Постой у каждого фонаря две секунды, чтобы вернуть свет'],['carry','Фонарь для пагоды','Донеси праздничный фонарь до пагоды','фонарь'] ],
+ [ ['carry','Почта через каньон','Донеси почтовую сумку до станции','сумка'],['cart','Сбежавшая вагонетка','Догони вагонетку у шахты и ударь по тормозу'],['switch','Перевод стрелок','Ударь по двум рычагам, чтобы соединить рельсы'],['defense','Бандиты на тракте','Освободи почтовый тракт от бандитов'] ],
+ [ ['switch','Запуск верфи','Включи два энергопульта ударами'],['jump','Разорванная орбита','Перепрыгни разрывы и лазерные импульсы'],['hold','Нестабильные реакторы','Постой у каждого реактора две секунды, избегая дронов'],['sequence','Код посадки','Включи посадочные маяки в порядке 2 → 1 → 3'] ]
+];
+function полМаршрута(а,x,z){
+ for(const p of а.маршрут)if(Math.abs(x-p.x)<=p.w/2&&Math.abs(z-p.z)<=p.d/2)return 0;
+ if(а.мостик?.visible&&Math.abs(x-а.мостик.position.x)<2.2&&Math.abs(z-а.мостик.position.z)<2.3)return 0;
+ return -30;
+}
+function построитьМаршрутВремени(а){
+ const e=а.эра,s=а.шаг,д=эпохиВремени[e];а.миссия=заданияПутешествия[e][s];
+ а.маршрут=[];а.точки=[];а.врагиТропы=[];а.помехи=[];а.порядок=e===4?[1,0,2]:[0,1,2];
+ а.цель=а.миссия[0]==='switch'?2:['carry','cart','escort'].includes(а.миссия[0])?1:а.миссия[0]==='jump'?6:а.миссия[0]==='defense'?4:3;
+ а.чек=0;
+ const материал=envSurface(e===4?'metal':e===3?'timber':'rock',д.земля,2);
+ for(let i=0;i<7;i++){
+   const x=i===0?0:Math.sin(i*1.65+e*.6+s*.3)*3.4,z=14-i*14;
+   const p={x,z,w:i===0||i===6?11:9.5,d:10};а.маршрут.push(p);
+   propMesh(world,new THREE.BoxGeometry(p.w,2,p.d),материал,x,-1,z);
+   propMesh(world,new THREE.BoxGeometry(p.w*.92,.1,.24),emisM(д.акцент,.35),x,.04,z-p.d/2+.25);
+   for(const sign of [-1,1]){
+    брус(world,x+sign*(p.w/2-.2),.45,z+4,.18,.9,.18,0xe3c79b);
+    брус(world,x+sign*(p.w/2-.2),.45,z-4,.18,.9,.18,0xe3c79b);
+   }
+   if(i%2===0){меткаПрохода(i===0?'Прыжок через разлом':i===6?'Пузырь времени':'Контрольная точка',x,3.5,z+2);}
+ }
+ // Видимое дно находится глубоко под дорогой, ходить по нему нельзя.
+ брус(world,0,-22,-28,120,1,160,e===4?0x111b35:e===0?0x47362e:0x293343);
+ const конец=а.маршрут[6];а.портал=временнойПузырь(2.1);world.add(а.портал);а.портал.position.set(конец.x,2,конец.z-2);а.портал.visible=false;
+ const тип=а.миссия[0];
+ if(тип==='carry'){
+   const p=а.маршрут[1],q=а.маршрут[5];а.груз=new THREE.Group();world.add(а.груз);а.груз.position.set(p.x,.65,p.z);
+   if(e===0){const яйцо=propMesh(а.груз,new THREE.SphereGeometry(.55,16,12),plastic(0xf6e0b6),0,0,0);яйцо.scale.y=1.35;}
+   else if(e===2){propMesh(а.груз,new THREE.SphereGeometry(.6,16,12),emisM(0xffa23d,.7),0,0,0);propMesh(а.груз,new THREE.TorusGeometry(.35,.04,6,20),metalM(0xc29c4a),0,.75,0);}
+   else {брус(а.груз,0,0,0,.8,.9,.45,0x9d6e47);брус(а.груз,0,.16,.25,.5,.35,.03,0xf3dfb5);}
+   а.доставка=propMesh(world,new THREE.TorusGeometry(1.4,.2,8,32),emisM(д.акцент,.5),q.x,.25,q.z);а.доставка.rotation.x=Math.PI/2;
+   меткаПрохода(e===0?'Гнездо':e===2?'Пагода':'Почтовая станция',q.x,3,q.z);
+ }else if(тип==='escort'){
+   а.друг=e===0?динозавр(0x8fac62):makeHero(0xd5a558,'tshirt','none');world.add(а.друг);а.друг.scale.setScalar(e===0?.4:.9);а.друг.position.set(1,0,14);а.другУзел=0;
+ }else if(тип==='cart'){
+   const p=а.маршрут[5];а.вагонетка=new THREE.Group();world.add(а.вагонетка);
+   брус(а.вагонетка,0,.8,0,1.8,1.2,2.1,0x77685d);
+   for(const x of [-1,1])for(const z of [-.7,.7])propMesh(а.вагонетка,new THREE.CylinderGeometry(.32,.32,.16,12),metalM(0x363942),x,.3,z).rotation.z=Math.PI/2;
+   брус(а.вагонетка,0,1.7,0,.14,.8,.14,0xd5ad5b);propMesh(а.вагонетка,new THREE.SphereGeometry(.23,10,8),emisM(0xef7755,.5),0,2.12,0);
+   а.вагонетка.position.set(p.x,0,p.z);меткаПрохода('Ударь по тормозу',p.x,3.8,p.z);
+ }else if(!['jump','defense'].includes(тип)){
+   const count=а.цель;
+   for(let i=0;i<count;i++){
+    const p=а.маршрут[тип==='switch'?1+i:1+i*2],g=new THREE.Group();world.add(g);g.position.set(p.x,0,p.z);g.userData.номер=i;
+    if(тип==='rescue'){
+      const малыш=e===0?динозавр(0xa5b97c):makeHero([0xe79983,0x86b7b7,0xb1a2d2][i],'tshirt','none');g.add(малыш);малыш.scale.setScalar(e===0?.3:.8);g.userData.спасённый=малыш;
+      const клетка=new THREE.Group();g.add(клетка);g.userData.клетка=клетка;
+      for(const x of [-1,0,1])for(const z of [-1,1])брус(клетка,x,1.2,z,.11,2.4,.11,e===0?0x43884b:0x7e8990);
+      брус(клетка,0,2.4,0,2.3,.18,2.3,e===0?0x527d42:0x6c737a);
+      propMesh(клетка,new THREE.TorusGeometry(.3,.1,6,16),metalM(0xedbd59),0,1,1.15);
+    }else if(тип==='sequence'){
+      propMesh(g,new THREE.CylinderGeometry(.8,.8,1.2,16),plastic(e===2?0xad5344:0x43616f),0,.7,0);
+      propMesh(g,new THREE.CylinderGeometry(.83,.83,.12,16),emisM(д.акцент,.5),0,1.36,0);
+    }else if(тип==='switch'){
+      брус(g,0,.55,0,1.4,1.1,1.1,0x5f717b);
+      const wheel=propMesh(g,new THREE.TorusGeometry(.65,.13,8,24),metalM(д.акцент),0,1.4,.25);g.userData.колесо=wheel;
+    }else{
+      propMesh(g,new THREE.CylinderGeometry(.7,.9,1.8,16),metalM(0x667f89),0,.9,0);
+      g.userData.свет=propMesh(g,new THREE.SphereGeometry(.5,14,10),emisM(д.акцент,.2),0,2.15,0);
+    }
+    if(тип==='sequence')меткаПрохода(String(i+1),p.x,2.8,p.z);
+    а.точки.push(g);
+   }
+ }
+ if(тип==='switch'){
+   const p=а.маршрут[2],q=а.маршрут[3];а.мостик=брус(world,(p.x+q.x)/2,-.12,(p.z+q.z)/2,4.4,.24,4.6,д.акцент);а.мостик.visible=false;
+ }
+ // Предупреждённые выбросы: светится площадка, затем приходит низкая волна.
+ for(const i of (тип==='jump'?[1,2,4,5]:[2,4])){
+   const p=а.маршрут[i],g=new THREE.Group();world.add(g);g.position.set(p.x,0,p.z-1.8);
+   const знак=propMesh(g,new THREE.BoxGeometry(p.w-.5,.05,1.6),new THREE.MeshBasicMaterial({color:0xffbd64,transparent:true,opacity:.12}),0,.04,0);
+   const волна=propMesh(g,new THREE.BoxGeometry(p.w-.6,1.1,.5),emisM(e===4?0xff647c:e===2?0xbee5eb:0xf3c67b,.7),0,.55,0);волна.visible=false;
+   а.помехи.push({g,знак,волна,фаза:i*.73});
+ }
+ for(let i=0;i<4;i++){
+   const p=а.маршрут[[1,2,4,5][i]],g=противникТропы(e,i);world.add(g);g.position.set(p.x+(i%2?2:-2),0,p.z+1.8);
+   const предупреждение=propMesh(world,new THREE.TorusGeometry(.85,.065,6,20),emisM(0xff6c59,.8),g.position.x,.08,g.position.z);предупреждение.rotation.x=Math.PI/2;предупреждение.visible=false;
+   а.врагиТропы.push({g,p,жив:true,hp:e===1&&i%2?2:1,фаза:i*.63,предупреждение,dir:new THREE.Vector2(0,1)});
+ }
+ hint(а.миссия[2]+' · Разрывы проходи прыжком; двойной прыжок — два нажатия.');
+}
+function противникТропы(e,i){
+ if(e===0){const g=динозавр(0xb07850);g.scale.setScalar(.42);return g;}
+ if(e===1){const g=i%2?рыцарьЦитадели():гигантскаяКрыса();g.scale.setScalar(i%2?.65:.8);return g;}
+ if(e===3){const g=бандитПрерии();g.scale.setScalar(.95);return g;}
+ const g=new THREE.Group();
+ if(e===2){
+  propMesh(g,new THREE.SphereGeometry(.65,14,10),emisM(0xcb6557,.3),0,1,0);
+  for(const side of [-1,1]){const wing=propMesh(g,new THREE.ConeGeometry(.55,.9,3),plastic(0xe5c99f),side*.8,1,0);wing.rotation.z=side*1.1;}
+ }else{
+  propMesh(g,new THREE.CylinderGeometry(.8,1,.36,16),metalM(0x69788a),0,1,0);
+  propMesh(g,new THREE.SphereGeometry(.45,14,10),emisM(0x84dae1,.5),0,1.3,0);
+ }
+ for(const x of [-.22,.22])propMesh(g,new THREE.SphereGeometry(.1,8,6),emisM(0xff634e,1),x,1.1,.59);
+ return g;
+}
+function прогрессТропы(а,g){
+ if(g?.userData.готов)return;
+ if(g){g.userData.готов=true;if(g.userData.клетка)g.userData.клетка.visible=false;
+   else if(g.userData.колесо)g.userData.колесо.rotation.z=Math.PI/2;
+   else if(g.userData.свет)g.userData.свет.material=emisM(0x7cf2ad,.9);
+   else g.children.forEach(c=>{if(c.material)c.material=emisM(0x7cf2ad,.6);});}
+ а.собрано++;sfx('chime');
+ if(а.собрано>=а.цель){а.портал.visible=true;if(а.мостик)а.мостик.visible=true;sfx('portal');}
+ updateHud();
+}
+function ударНаТропе(а,r){
+ let hit=false;const близко=p=>Math.hypot(player.x-p.x,player.z-p.z)<r+1&&Math.abs(player.y-p.y)<3;
+ for(const v of а.врагиТропы)if(v.жив&&близко(v.g.position)){
+   v.hp--;hit=true;if(v.hp<=0){v.жив=false;v.g.visible=v.предупреждение.visible=false;puff(v.g.position.x,1,v.g.position.z,0xffd594,8);if(а.миссия[0]==='defense')прогрессТропы(а);}
+ }
+ if(а.миссия[0]==='cart'&&!а.собрано&&близко(а.вагонетка.position)){прогрессТропы(а);return true;}
+ if(['sequence','rescue','switch'].includes(а.миссия[0])){
+  const g=а.точки.find(g=>!g.userData.готов&&близко(g.position));
+  if(g){
+   if(а.миссия[0]==='sequence'&&g.userData.номер!==а.порядок[а.собрано]){hint('Следующий номер: '+(а.порядок[а.собрано]+1));sfx('clang');}
+   else прогрессТропы(а,g);return true;
+  }
+ }
+ return hit;
+}
+function вернутьНаТропу(p){
+ const а=поход,точка=а.маршрут[а.чек];p.x=точка.x;p.z=точка.z+2;p.y=.3;p.vy=0;p.jumps=0;p.glide=0;p.glided=false;p.hurtT=1.2;
+ if(!p.second){bigMsg('Блик вернул к контрольной точке',1.8,'#a3e6fc');sfx('portal');}
+}
+function тикМаршрутаВремени(а,dt){
+ const t=а.время,тип=а.миссия[0],близко=(p,r)=>Math.hypot(player.x-p.x,player.z-p.z)<r&&Math.abs(player.y)<.6;
+ for(let i=0;i<а.маршрут.length;i++){
+   const p=а.маршрут[i];
+   if(Math.abs(player.x-p.x)<p.w/2&&Math.abs(player.z-p.z)<p.d/2&&Math.abs(player.y)<.3&&player.vy<=0){
+    if(i%2===0&&i>а.чек){а.чек=i;lastPoint={x:p.x,z:p.z+2};bigMsg('Контрольная точка',1.1,'#a3e6fc');}
+    if(тип==='jump'&&i>0&&!p.пройден){p.пройден=true;прогрессТропы(а);}
+   }
+ }
+ for(const h of а.помехи){
+   const ф=(t+h.фаза)%4.8,актив=ф>3.5&&ф<4.3;h.знак.material.opacity=ф>2.4?.65:.12;h.волна.visible=актив;
+   if(актив&&Math.abs(player.x-h.g.position.x)<4.4&&Math.abs(player.z-h.g.position.z)<.9&&player.y<1.1&&player.y>=-.3)hurtPlayer(1,h.g.position);
+ }
+ for(const v of а.врагиТропы){
+  if(!v.жив)continue;const g=v.g,p=g.position,phase=(t+v.фаза)%4.4;
+  const nearby=Math.hypot(player.x-p.x,player.z-p.z)<9&&player.y>-1;
+  v.предупреждение.visible=nearby&&phase>1.9&&phase<2.8;v.предупреждение.position.set(p.x,.08,p.z);
+  if(phase<1.9){p.x=v.p.x+Math.sin(t*.9+v.фаза)*2;p.z=v.p.z+1.8;}
+  else if(phase<2.8&&nearby){v.dir.set(player.x-p.x,player.z-p.z).normalize();g.rotation.y=Math.atan2(v.dir.x,v.dir.y);}
+  else if(phase<3.6&&nearby){p.x+=v.dir.x*dt*5;p.z+=v.dir.y*dt*5;}
+  p.x=THREE.MathUtils.clamp(p.x,v.p.x-v.p.w/2+.8,v.p.x+v.p.w/2-.8);p.z=THREE.MathUtils.clamp(p.z,v.p.z-4,v.p.z+4);
+  p.y=(а.эра===2||а.эра===4)?Math.sin(t*2+v.фаза)*.12:Math.abs(Math.sin(t*8))*.06;
+  if(v.g.userData.хвост)v.g.userData.хвост.rotation.y=Math.sin(t*8)*.25;
+  if(nearby&&Math.hypot(player.x-p.x,player.z-p.z)<1.15&&player.y<1.5&&player.y>=-.3)hurtPlayer(1,p);
+ }
+ if(тип==='carry'&&!а.собрано){
+   if(!а.несёт&&близко(а.груз.position,1.8)){а.несёт=true;sfx('chime');hint('Груз у тебя! Донеси его к светящемуся кругу.');}
+   if(а.несёт){а.груз.position.set(player.x,player.y+2.4,player.z);if(близко(а.доставка.position,1.7)){а.груз.position.copy(а.доставка.position);а.груз.position.y=.8;прогрессТропы(а);}}
+ }
+ if(тип==='hold')for(const g of а.точки){
+   if(g.userData.готов)continue;g.userData.заряд=близко(g.position,1.9)?(g.userData.заряд||0)+dt:0;
+   g.userData.свет.scale.setScalar(1+g.userData.заряд*.18);if(g.userData.заряд>=2)прогрессТропы(а,g);
+ }
+ if(тип==='cart'&&!а.собрано){const p=а.маршрут[5];а.вагонетка.position.set(p.x+Math.sin(t*1.8)*2.7,0,p.z+Math.cos(t*1.8)*2.4);а.вагонетка.rotation.y=-t*1.8;}
+ if(тип==='escort'&&!а.собрано){
+   const p=а.друг.position;
+   if(а.другПрыжок){
+     const j=а.другПрыжок;j.t=Math.min(1,j.t+dt/1.2);p.lerpVectors(j.от,j.до,j.t);p.y=Math.sin(j.t*Math.PI)*3.4;
+     if(j.t===1){а.другУзел++;а.другПрыжок=null;}
+   }else if(а.другУзел<6){
+     const u=а.маршрут[а.другУзел],v=а.маршрут[а.другУзел+1];
+     if(player.z<p.z+2&&Math.hypot(player.x-p.x,player.z-p.z)<18){
+       if(p.z>u.z-3.8){p.z-=dt*4;p.x+=(u.x-p.x)*Math.min(1,dt*3);}
+       else а.другПрыжок={от:p.clone(),до:new THREE.Vector3(v.x,0,v.z+3.8),t:0};
+     }
+   }else if(близко(p,6))прогрессТропы(а);
+ }
+}
+
 function заданиеЭпохи(а){
   if(а.бой){
     if(а.финалМорока)return 'Ударами столкни Морока в разлом';
@@ -10074,6 +10259,7 @@ function заданиеЭпохи(а){
     if(а.эра===3)return а.уязвим?'Лассо вернулось. Подбеги и ударь':'Следи за лассо и отпрыгни от петли';
     return а.уязвим?'Подбеги и ударь, пока он восстанавливается':'Перепрыгни волну и дождись, когда соперник откроется';
   }
+  if(а.миссия)return а.миссия[2];
   return ['Собери '+эпохиВремени[а.эра].находка,'Запрыгни на три светящиеся платформы','Ударь по трём замкам у дороги','Проведи друга через три маяка: оставайся рядом'][а.шаг];
 }
 function инфоВремени(){
@@ -10083,10 +10269,10 @@ function инфоВремени(){
     $('symbolCard').classList.add('hidden');
   }else{
     const а=поход,д=эпохиВремени[а.эра];
-    $('worldCard').textContent=д.имя+' · '+(а.шаг+1)+'/5 · '+д.этапы[а.шаг];
+    $('worldCard').textContent=д.имя+' · '+(а.шаг+1)+'/5 · '+(а.миссия?.[1]||д.этапы[а.шаг]);
     $('taskCard').textContent=а.портал?.visible?'Войди в открытый пузырь времени':заданиеЭпохи(а);
     $('symbolCard').classList.remove('hidden');
-    $('symbolCard').textContent=а.бой?а.имя+' · '+а.силы+' / '+а.макс:(['Находки','Платформы','Замки','Маяки'][а.шаг]+' · '+(а.собрано||0)+' / 3');
+    $('symbolCard').textContent=а.бой?а.имя+' · '+а.силы+' / '+а.макс:(а.миссия?'Задача · '+а.собрано+' / '+а.цель:(['Находки','Платформы','Замки','Маяки'][а.шаг]+' · '+(а.собрано||0)+' / 3'));
   }
   const d=diff();$('hearts').textContent=d.harm==='damage'?'❤️'.repeat(Math.max(0,hearts)):d.harm==='none'?'😊':'🙂';
 }
@@ -10096,41 +10282,15 @@ function начатьЭтапВремени(финальныйПоединок=f
   свояСцена('эпоха',-1,д.фон,0,14,Math.PI);
   const а=поход;Object.assign(а,{эра:e,шаг,бой:шаг===4,собрано:0,точки:[],уязвим:false,остыл:0});
   lastPoint={x:0,z:14};hearts=diff().hearts||3;
-  а.модели=декорацииЭпохи(world,e,шаг);тропаЭпохи(а);
+  а.модели=декорацииЭпохи(world,e,шаг);
   if(e===4)starfield();
-  for(const sign of [-1,1]){addSolid(sign*12,0,.45,24,20);addSolid(0,sign*23,12,.45,20);}
-  if(e===1&&!а.бой){
-    а.крыса=гигантскаяКрыса();world.add(а.крыса);а.крыса.visible=false;
-    а.сторонаКрысы=шаг%2?1:-1;а.следующаяКрыса=2+шаг*.45;
-  }
-  if(а.бой)аренаЭпохи(а);
-  else{
-    а.портал=временнойПузырь(2.15);а.портал.position.set(0,2,-16.5);world.add(а.портал);а.портал.visible=false;
-    for(let i=0;i<3;i++){
-      const x=[-3.4,3.2,0][i]*(e%2?-1:1),z=7-i*8;
-      const g=new THREE.Group();world.add(g);g.position.set(x,0,z);
-      const mat=emisM(д.акцент,.55);
-      if(шаг===0){
-        const формы=[()=>new THREE.DodecahedronGeometry(.78),()=>new THREE.CylinderGeometry(.78,.78,.4,10),
-          ()=>new THREE.TorusGeometry(.56,.24,8,22),()=>new THREE.IcosahedronGeometry(.75),()=>new THREE.CylinderGeometry(.47,.47,1.25,12)];
-        const находка=propMesh(g,формы[e](),mat,0,1.2,0);
-        находка.rotation.z=.33;
-      }else if(шаг===1){
-        const h=1.2+i*.75;propMesh(g,new THREE.CylinderGeometry(2,2.25,h,10),metalM(д.земля,.7),0,h/2,0);
-        propMesh(g,new THREE.TorusGeometry(1.55,.09,8,28),mat,0,h+.035,0).rotation.x=Math.PI/2;addDisc(x,z,2,h);g.userData.высота=h;
-      }else if(шаг===2){
-        брус(g,0,.7,0,2,1.4,1.05,0x615665);propMesh(g,new THREE.TorusGeometry(.5,.14,8,24),metalM(0xd9b580),0,1.58,0);
-        брус(g,0,.95,.58,.8,.61,.14,д.акцент);
-      }else{брус(g,0,.8,0,.22,1.6,.22,0x715b45);propMesh(g,new THREE.SphereGeometry(.43,12,8),mat,0,1.72,0);}
-      а.точки.push(g);
-    }
-    if(шаг===3){const друг=ДРУЗЬЯ[e%3];а.друг=киноЧеловек(друг.цвет,друг.костюм,друг.шляпа,1.4,14,Math.PI);}
-    if(шаг===0||шаг===2){
-      а.ловушка=временнойПузырь(1.15);world.add(а.ловушка);а.ловушка.position.set(0,1,-1);
-    }
-  }
+  if(а.бой){
+    тропаЭпохи(а);
+    for(const sign of [-1,1]){addSolid(sign*12,0,.45,24,20);addSolid(0,sign*23,12,.45,20);}
+    аренаЭпохи(а);
+  }else построитьМаршрутВремени(а);
   if(д.фон==='jungle'&&!а.бой)startTheme('forest');
-  updateHud();bigMsg(д.имя+' · '+д.этапы[шаг],2,'#ffdf8a');hint(заданиеЭпохи(а));
+  updateHud();bigMsg(д.имя+' · '+(а.миссия?.[1]||д.этапы[шаг]),2,'#ffdf8a');hint(заданиеЭпохи(а));
 }
 function овалСущества(g,материал,x,y,z,rx,ry,rz){
   const m=propMesh(g,new THREE.SphereGeometry(1,16,12),материал,x,y,z);
@@ -10318,6 +10478,7 @@ function начатьБойСМороком(а){
 }
 function попаданиеВЭпохе(radius){
   const а=поход;if(а?.тип!=='эпоха')return false;
+  if(а.маршрут)return ударНаТропе(а,radius);
   const near=(p,r)=>Math.hypot(player.x-p.x,player.z-p.z)<=r&&player.y<4;
   if(!а.бой){
     let попал=false;
@@ -10370,6 +10531,7 @@ function тикЭпохи(а,dt){
   а.модели.forEach((m,i)=>{if(а.эра===4)m.position.y=5+(i%3)*1.7+Math.sin(t+i)*.6;else m.rotation.y+=Math.cos(t+i)*.18*dt;});
   if(а.портал.visible){а.портал.rotation.y=t*.7;if(рядом(а.портал.position,2)){следующийЭтапВремени();return;}}
   if(а.бой){тикСхваткиЭпохи(а,dt);return;}
+  if(а.маршрут){тикМаршрутаВремени(а,dt);return;}
   if(а.крыса)крысаНаДороге(а,dt);
   if(а.ловушка){
     а.ловушка.position.x=6*Math.sin(t*.78);а.ловушка.rotation.y=t;
