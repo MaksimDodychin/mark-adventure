@@ -1,15 +1,16 @@
 // Scoped offline application updater; version changes with the payload and updater.
-const VERSION = 'dd5ff3fdfd';
+const VERSION = 'b7a6fba72d';
 const PREFIX = "adventure-";
 const CACHE = PREFIX + VERSION;
 const SCOPE = new URL(self.registration.scope);
 const INDEX = new URL('index.html', SCOPE).href;
+const RELEASE = new URL('release-b7a6fba72d.html', SCOPE).href;
 const ASSETS = ["./manifest.webmanifest","./icon-192.png","./icon-512.png","./icon-512-maskable.png","./apple-touch-icon.png","./favicon-64.png"];
 const belongs = url => url.origin === SCOPE.origin && url.pathname.startsWith(SCOPE.pathname);
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     // Installation must fail if the new HTML is missing, stale, or only half deployed.
-    const response = await fetch(new Request(INDEX, { cache: 'reload' }));
+    const response = await fetch(new Request(RELEASE, { cache: 'reload' }));
     if (!response.ok) throw new Error('New application document unavailable');
     const match = (await response.clone().text()).match(/window\.__APP_VER\s*=\s*["']([^"']+)["']/);
     if (!match || match[1] !== VERSION) throw new Error('New application version not deployed yet');

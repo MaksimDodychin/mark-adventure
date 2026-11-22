@@ -310,7 +310,7 @@ body:has(#menu:not(.hidden)) #mkl-bar{left:auto;right:8px;top:8px;bottom:auto;tr
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "dd5ff3fdfd";</script>
+  <script>window.__APP_VER = "b7a6fba72d";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -15216,12 +15216,12 @@ window.__dbg = {
         // The worker verifies index.html, fills its new cache, then takes over atomically.
         await reg.update();
       } else {
-        var target = new URL('index.html', scope); target.searchParams.set('v', next);
+        var target = new URL('release-' + next + '.html', scope);
         var response = await fetch(target.href, { cache: 'reload' });
         if (!response.ok) throw new Error('update unavailable');
         var match = (await response.text()).match(/window\.__APP_VER\s*=\s*["']([^"']+)["']/);
         if (!match || match[1] !== next) throw new Error('update not ready');
-        navigate(next);
+        location.replace(target.href);
       }
       setTimeout(function () { if (pending) { pending = ''; var d = document.getElementById('updBanner'); if (d) d.remove(); } }, 20000);
       return true;
