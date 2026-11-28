@@ -310,7 +310,7 @@ body:has(#menu:not(.hidden)) #mkl-bar{left:auto;right:8px;top:8px;bottom:auto;tr
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <meta name="msapplication-TileImage" content="icon-192.png">
   <meta name="msapplication-TileColor" content="#12456e">
-  <script>window.__APP_VER = "b7a6fba72d";</script>
+  <script>window.__APP_VER = "4563d3b839";</script>
 </head>
 <body>
 <div id="err"></div>
@@ -9128,8 +9128,8 @@ function setPause(on) {
     : 'Играем в одиночку. Стрелки и WASD — у героя.';
   state = on ? 'pause' : 'play';
 }
-/* пальцем управляем крестовиной; джойстик остаётся для тех, кому он привычнее */
-let джойстики = localStorage.getItem('упр') !== 'стрелки';   // 🎮 по умолчанию джойстик, как на приставке
+/* Экранное управление — джойстиками; клавиатура остаётся доступной. */
+let джойстики = true; // По просьбе Марка: экранное управление всегда джойстиком.
 function showSticks() {
   const игра = state !== 'menu';
   const тач = isTouch || innerWidth < 980;                 // на узком экране кнопки нужны всегда
@@ -12502,14 +12502,7 @@ $('runBtn2').addEventListener('pointerdown', e => {
   $('runBtn2').classList.toggle('on', !!hero2.runLock);
   $('runBtn2').setAttribute('data-cap', hero2.runLock ? 'БЕГ ВКЛ · ,' : 'БЕГ · ,');
 });
-function обновитьКнопкуУпр() {
-  $('ctrlBtn').textContent = джойстики ? '🎮 УПРАВЛЕНИЕ: ДЖОЙСТИК' : '🎮 УПРАВЛЕНИЕ: СТРЕЛКИ';
-}
-$('ctrlBtn').addEventListener('click', () => {
-  джойстики = !джойстики;
-  try { localStorage.setItem('упр', джойстики ? 'джойстик' : 'стрелки'); } catch (_) {}
-  обновитьКнопкуУпр(); showSticks();
-});
+function обновитьКнопкуУпр() { $('ctrlBtn').textContent='🎮 УПРАВЛЕНИЕ: ДЖОЙСТИК';$('ctrlBtn').disabled=true; }
 обновитьКнопкуУпр();
 $('coopBtn').addEventListener('click', toggleCoop);
 $('flyBtn').addEventListener('click', () => {

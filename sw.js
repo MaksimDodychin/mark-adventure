@@ -1,10 +1,10 @@
 // Scoped offline application updater; version changes with the payload and updater.
-const VERSION = 'b7a6fba72d';
+const VERSION = '4563d3b839';
 const PREFIX = "adventure-";
 const CACHE = PREFIX + VERSION;
 const SCOPE = new URL(self.registration.scope);
 const INDEX = new URL('index.html', SCOPE).href;
-const RELEASE = new URL('release-b7a6fba72d.html', SCOPE).href;
+const RELEASE = new URL('release-4563d3b839.html', SCOPE).href;
 const ASSETS = ["./manifest.webmanifest","./icon-192.png","./icon-512.png","./icon-512-maskable.png","./apple-touch-icon.png","./favicon-64.png"];
 const belongs = url => url.origin === SCOPE.origin && url.pathname.startsWith(SCOPE.pathname);
 self.addEventListener('install', event => {
